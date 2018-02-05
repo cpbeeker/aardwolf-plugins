@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+<!-- Saved on Monday, December 01, 2008, 3:08 PM -->
+<!-- MuClient version 4.37 -->
+
+
+<muclient>
+<plugin
+   name="Aardwolf_Regen"
+   author="Bast"
+   id="952f716e12d4fb06621b7b25"
+   language="Lua"
+   purpose="wear a ring of regen at certain times"
+   save_state="y"
+   date_written="2008-12-01 15:06:56"
+   requires="4.73"
+   version="6.1"
+   >
+<description trim="y">
+<![CDATA[
+This plugin is designed to wear the regen ring in certain rooms and when sleeping
+The regen ring must be in your inventory and not in a container
+
+It will wear the regen ring when
+  sleeping
+  when entering a regen room
+    To add a room, go to that room and type "regen add"
+  when idling
+
+It will remove the regen ring when
+  standing
+  when leaving a regen room
+  when you stop idling
+
+]]>
+</description>
+
+</plugin>
+
+
+<!--  Get our standard constants -->
+
+<include name="constants.lua"/>
+
+<!--  Plugin help  -->
+
+<aliases>
+  <alias
+   name="sleep"
+   script="sleep"
+   match="^(sl|sle|slee|sleep)[ ]*[.]*$"
+   enabled="y"
+   regexp="y"
+   ignore_case="y"
+   sequence="100"
+  >
+  </alias>
+</aliases>
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require "ldplugin"
+require "verify"
+require "serialize"
+require "tprint"
+--require "var"
+require "pluginhelper"
+require "commas"
+require "aardutils"
+require "eqdb"
+
+db = EQdb:new{}
+
+stats = {}
+oldstats = {}
+status = {}
+oldstatus = {}
+tryremove = false
+trywear = false
+regenrooms = {}
+current19 = {}
+runto = false
+
+state = -1
+statestring = 'unknown'
+
+function check_room(room_id)
+  if not room_id or not current_room then
+    return false
+  end
+  if regenrooms[room_id] ~= nil then
+    return true
+  end
+  return false
+end
+
+function wear_regen()
+  if verify_bool(phelper.off) == true then
+    return
+  end
+  if trywear then
+    return
+  end
+  if not verify_bool(phelper.regenworn) or tryremove then
+    --print('setting trywear = true')
+    trywear = true
+    if phelper.regensn then
+      SendNoEcho("get " .. phelper.regensn)
+      SendNoEcho("wear " .. phelper.regensn .. " lfinger")
+    else
+      SendNoEcho("wear regen lfinger")
+    end
+  end
+end
+
+function remove_regen()
+  if verify_bool(phelper.off) == true then
+    return
+  end
+  if tryremove then
+    return
+  end
+  if verify_bool(phelper.regenworn) or trywear then
+    --print('setting tryremove = true')
+    tryremove = true
+    SendNoEcho("wear " .. phelper.oldringsn .. " lfinger")
+  end
+end
+
+function sleep(name, line, wildcards)
+  wear_regen()
+  Send(line)
+end
+
+function checkstand()
+  --print('checkstand')
+  if oldstatus.statestring == 'sleeping' and phelper.regenworn and not verify_bool(phelper.inregen) then
+    remove_regen()
+  end
+end
+
+function add_room(name, line, wildcards)
+  phelper:plugin_header()
+  if current_room == nil then
+    ColourNote(RGBColourToName(phelper.plugin_colour), "black", "Could not get current room")
+    ColourNote("", "", "")
+    return
+  end
+  if regenrooms[current_room.id] ~= nil then
+    ColourNote(RGBColourToName(phelper.plugin_colour), "black", current_room.name .. " (" .. current_room.id .. ")" .. " already in regen list")
+    ColourNote("", "", "")
+    return
+  end
+
+  regenrooms[current_room.id] = current_room.name
+  ColourNote(RGBColourToName(phelper.plugin_colour), "black", "Added Room: " .. current_room.name .. " (" .. current_room.id .. ")")
+  ColourNote("", "", "")
+  wear_regen()
+end
+
+function remove_room(name, line, wildcards)
+  phelper:plugin_header()
+  if current_room == nil then
+    ColourNote(RGBColourToName(phelper.plugin_colour), "black", "Could not get current room")
+    ColourNote("", "", "")
+    return
+  end
+  if regenrooms[current_room.id] ~= nil then
+    regenrooms[current_room.id] = nil
+    ColourNote(RGBColourToName(phelper.plugin_colour), "black", current_room.name .. " (" .. current_room.id .. ")" .. " removed")
+    ColourNote("", "", "")
+    remove_regen()
+    return
+  end
+
+  ColourNote(RGBColourToName(phelper.plugin_colour), "black", current_room.name .. " (" .. current_room.id .. ")" .. " not in room list")
+  ColourNote("", "", "")
+end
+
+function show_rooms(name, line, wildcards)
+  phelper:plugin_header(" Regen Rooms")
+  for id,name in pairs(regenrooms) do
+    ColourNote(RGBColourToName(phelper.plugin_colour), "black", name .. " (" .. id .. ")")
+  end
+  ColourNote("", "", "")
+end
+
+function onwearlocchange(stuff)
+  local stuff = assert (loadstring ('return ' .. stuff or ""))()
+  --tprint(stuff)
+  local wearloc = stuff.wearloc
+  local action = stuff.action
+  if wearloc ~= 'All' then
+    local item = db:getitem(stuff.item.serial)
+    --print('onwearlocchange')
+    if tonumber(wearloc) == 19 and tonumber(action) == 2 then
+      current19 = item
+      if item.name == "Aardwolf Ring of Regeneration" then
+        phelper:set('regenworn',  true, {silent=true})
+        phelper:set('regensn', item.serial, {silent=true})
+        trywear = false
+        SaveState()
+      elseif item and not tryremove then
+        phelper:set('oldringsn', item.serial, {silent=true})
+        phelper:set('oldringdesc', item.plainname, {silent=true})
+        SaveState()
+      end
+    elseif tonumber(wearloc) == 19 and tonumber(action) == 1 then
+      if item.name == "Aardwolf Ring of Regeneration" then
+        phelper:set('regenworn', false, {silent=true})
+        tryremove = false
+        SaveState()
+      end
+      current19 = {}
+    end
+  end
+end
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+function OnPluginBroadcast (msg, id, name, text)
+
+  if id == "aaa56faed92ffc6146964abc" and tonumber(msg) == -2 then
+    CallPlugin("aaa56faed92ffc6146964abc", 'registerevent', GetPluginID(), "wearlocchange", "onwearlocchange")
+  end
+
+  if id == '3e7dedbe37e44942dd46d264' then
+    if text:find("room.info") then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","room")
+      room = assert (loadstring ('return ' .. gmcparg or ""))()
+      current_room = {}
+      current_room['id'] = tonumber(room.info.num)
+      current_room['name'] = room.info.name
+      oldregen  = verify_bool(phelper.inregen)
+      phelper:set('inregen', check_room(current_room.id), {silent=true})
+
+      if status.statestring == 'active' then
+        if phelper.inregen and not phelper.regenworn then
+          wear_regen()
+        elseif not phelper.inregen and phelper.regenworn then
+          remove_regen()
+        end
+      end
+
+    elseif text:find("char.status") then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","char")
+      char = assert (loadstring ('return ' .. gmcparg or ""))()
+      oldstatus = status
+      status={state=char.status.state,statestring=statestrings[tonumber(char.status.state)]}
+      if status.statestring == 'active' and oldstatus.statestring == 'sleeping' then
+        checkstand()
+      end
+    end
+  elseif id == "aaabe45678afa22343c5a327" then
+    if msg == 1 then
+      if phelper.inregen and not phelper.regenworn and status.statestring == 'active' then
+        --print('wearing regen from idle')
+        wear_regen()
+      end
+    --elseif msg == 0 and phelper.regenworn then
+    --  remove_regen()
+    end
+  end
+  phelper:OnPluginBroadcast(msg, id, name, text)
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  assert (loadstring (GetVariable ("regenrooms") or "")) ()
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+
+  ldplugin ("broadcast_idle")
+  ldplugin ("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+  ldplugin ('eqdb')
+
+  CallPlugin("aaa56faed92ffc6146964abc", 'registerevent', GetPluginID(), "wearlocchange", "onwearlocchange")
+
+  phelper:OnPluginEnable()
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+  CallPlugin("aaa56faed92ffc6146964abc", 'unregisterevent', GetPluginID(), "wearlocchange", "onwearlocchange")
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+  SetVariable ("regenrooms",
+               "regenrooms = " .. serialize.save_simple (regenrooms))
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+
+<script>
+<![CDATA[
+
+phelper:add_setting('inregen', {help="whether you are in a room in the regen room list", type="bool", default=verify_bool(false), readonly=true})
+phelper:add_setting('regenworn', {help="whether you are wearing a regen ring", type="bool", default=verify_bool(false), readonly=true})
+phelper:add_setting('regensn', {help="the sn for the regen ring", type="string", default="", readonly=true})
+phelper:add_setting('oldringsn', {help="the sn for the old ring", type="string", default="", readonly=true})
+phelper:add_setting('oldringdesc', {help="the description for the old ring", type="string", default="", readonly=true})
+phelper:add_setting('off', {help="turn off wearing ring", type="bool", default=verify_bool(true)})
+
+phelper:set_default('cmd', 'regen')
+phelper:set_default('plugin_colour', 'orange')
+
+phelper:add_cmd('add', {func=add_room, help="add current room as a regen room"})
+phelper:add_cmd('remove', {func=remove_room, help="remove current room as a regen room"})
+phelper:add_cmd('show', {func=show_rooms, help="show rooms"})
+
+phelper:enable()
+]]>
+</script>
+</muclient>

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+<muclient>
+<plugin
+   name="miniwin_cp"
+   author="Bast"
+   id="eee3a98a021c1bee534ef093"
+   language="Lua"
+   purpose="Shows campaign objectives in a miniwindow"
+   date_written="2008-07-22"
+   requires="4.73"
+   version="6.1"
+   save_state="y"
+   >
+<description trim="y">
+<![CDATA[
+Shows outstanding campaign objectives.
+
+To activate, type: cp check
+
+TODO:
+   add ability to colour mobs in scan
+]]>
+</description>
+
+</plugin>
+
+<triggers>
+  <trigger
+   enabled="y"
+   match="^.*?\'Good luck in your campaign!\'$"
+   regex = "y"
+   sequence="100"
+   send_to="10"
+   script="set_show"
+  >
+  </trigger>
+</triggers>
+<aliases>
+		<alias
+			name="set_show"
+			script="set_show"
+			ignore_case="y"
+			match="mcpShow"
+			enabled="y"
+		>
+		</alias>
+</aliases>
+<!--  Script  -->
+
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require 'var'
+require "commas"
+require 'miniwin'
+require 'tprint'
+require 'pluginhelper'
+require 'ldplugin'
+require 'aardutils'
+require 'verify'
+
+cpwin = Miniwin:new{name="CP"}
+cpwin:set_default('windowpos', 7)
+cpwin:add_setting("time_colour", {help="the colour for the time", type="colour", default=verify_colour(0xD670DA), sortlev=1})
+cpwin:add_setting("mobdead_colour", {help="the colour for when a mob is dead", type="colour", default=verify_colour("red"), sortlev=1})
+cpwin:add_setting("notlevel_colour", {help="the colour for when this cp is no longer from this level", type="colour", default=verify_colour("cyan"), sortlev=1})
+--cpwin:disable()
+
+cpmobs = {}
+cptimer = {}
+level = nil
+curlevel = nil
+--showcpwin = false
+
+function set_show()
+  showcpwin = true
+end
+
+function show_cp_text ()
+
+  local texttable = {}
+  local header = {}
+  local style = {}
+
+  -- do nothing if no campaign
+  if #cpmobs == 0 or not next(cptimer) then
+    return
+  end -- if
+  -- heading
+
+  style = {}
+  style.text = string.format("Campaign mobs left: %s", #cpmobs)
+  table.insert (header, {style})
+
+  -- list of mobs
+  for i, v in ipairs (cpmobs) do
+    style = {}
+    style.text = string.format("%-30s %s", v.name, " (" .. v.location .. ")")
+    if verify_bool(v.mobdead) then
+      style.textcolour = "mobdead_colour"
+    end
+    table.insert (texttable, {style})
+  end -- for
+
+  tstyle = {}
+  tstyle.topborder = true
+  tstyle.backcolour = "footer_bg_colour"
+  style = {}
+  style.text = string.format ("Time to go: %sd %sh %sm ", cptimer.days, cptimer.hours, cptimer.mins)
+  style.textcolour = "time_colour"
+  table.insert(tstyle, style)
+  if level and level.level > 0 then
+    style = {}
+    style.text = "- Level: " .. tostring(level.level)
+    if not cptimer.cantake then
+      style.textcolour = cpwin.text_colour
+    else
+      style.textcolour = "notlevel_colour"
+    end
+    table.insert(tstyle, style)
+  end
+  table.insert (texttable, tstyle)
+
+  tstyle = {}
+  tstyle.backcolour = "footer_bg_colour"
+  style = {}
+  style.text = ''
+
+  if char and char.status and not cptimer.shtime then
+    style.text = 'Level ' .. tostring(char.status.level) .. ': '
+  end
+  if cptimer.shtime then
+    style.text = style.text .. "Can Take: " .. tostring(cptimer.shtime)
+  elseif verify_bool(cptimer.cantake) then
+    style.text = style.text .. "You can take a cp"
+  else
+    style.text = style.text .. "You may not take a cp"
+  end
+  table.insert(tstyle, style)
+  table.insert(texttable, tstyle)
+
+  cpwin:enable()
+  cpwin:addtab('default', texttable, header, true)
+  if showcpwin then
+    cpwin:show(true)
+    --showcpwin = false
+  end
+  --cpwin:changetotab('default')
+
+  style = {}
+  style.text = " CP: " .. #cpmobs
+  cpwin:tabbroadcast(true, {style})
+
+end -- show_cp_text
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+ if id == "aaa66f81c50828bbbfda7100" then
+    if msg == 1 then
+      local pvar = GetPluginVariable(  "aaa66f81c50828bbbfda7100", "mobs" )
+
+      -- get the mobs
+      loadstring( pvar )()
+      cpmobs = mobs
+
+      local pvar2 = GetPluginVariable(  "aaa66f81c50828bbbfda7100", "cp_info")
+      loadstring(pvar2)()
+      if cp_info.level then
+        level = convertlevel(cp_info.level)
+      else
+        level = convertlevel(-1)
+      end
+
+      show_cp_text()
+    elseif msg == 2 then
+      local pvar = GetPluginVariable(  "aaa66f81c50828bbbfda7100", "timer" )
+
+      -- get the timer
+      loadstring( pvar )()
+      cptimer = timer
+      show_cp_text()
+    elseif msg == 3 or msg == 4 then
+      cptimer = {}
+      mobs = {}
+      cpwin:disable()
+    end
+
+  elseif id == '3e7dedbe37e44942dd46d264' then
+    if text:find("char") then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval", "char")
+      tt = assert (loadstring ('return ' .. gmcparg or ""))()
+      char = tt
+      if tt['status'] then
+        tcurlevel = tt.status.level
+        if curlevel ~= tcurlevel then
+          curlevel = tcurlevel
+          show_cp_text()
+        end
+      end
+
+    end
+  end
+
+  phelper:OnPluginBroadcast(msg, id, name, text)
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose()
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin("broadcast_cp")
+  ldplugin ("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+
+  phelper:OnPluginEnable()
+  if IsConnected() then
+    CallPlugin("3e7dedbe37e44942dd46d264","Send_GMCP_Packet","request char")
+  end
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'mcp')
+phelper:set_default('plugin_colour', 'steelblue')
+
+phelper:add_pobject('win', cpwin)
+
+phelper:enable()
+
+]]>
+
+</script>
+
+</muclient>

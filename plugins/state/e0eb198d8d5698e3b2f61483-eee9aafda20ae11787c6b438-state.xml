@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- MuClient version 4.98 -->
+<!-- Written by Nick Gammon -->
+<!-- Home Page: http://www.mushclient.com/ -->
+
+<!-- Plugin state saved. Plugin: "miniwin_quest". World: "scanAardwolf". -->
+
+<muclient>
+
+<!-- variables -->
+
+<variables
+   muclient_version="4.98"
+   world_file_version="15"
+  >
+  <variable name="avail_bg_colourQuest">255</variable>
+  <variable name="avail_colourQuest">0</variable>
+  <variable name="bg_colourQuest">15204351</variable>
+  <variable name="bg_colourminiwin_quest_help">0</variable>
+  <variable name="border_colourQuest">16777215</variable>
+  <variable name="border_colourminiwin_quest_help">16777215</variable>
+  <variable name="button_bg_highlight_colourQuest">7392185</variable>
+  <variable name="button_bg_highlight_colourminiwin_quest_help">7392185</variable>
+  <variable name="button_border_darkQuest">2039583</variable>
+  <variable name="button_border_darkminiwin_quest_help">2039583</variable>
+  <variable name="button_border_lightQuest">4210752</variable>
+  <variable name="button_border_lightminiwin_quest_help">4210752</variable>
+  <variable name="button_text_colourQuest">16777215</variable>
+  <variable name="button_text_colourminiwin_quest_help">16777215</variable>
+  <variable name="button_text_highlight_colourQuest">0</variable>
+  <variable name="button_text_highlight_colourminiwin_quest_help">0</variable>
+  <variable name="cmd">mquest</variable>
+  <variable name="cmdphelp">mquest</variable>
+  <variable name="disabledQuest">false</variable>
+  <variable name="disabledminiwin_quest_help">false</variable>
+  <variable name="enabled">true</variable>
+  <variable name="firstshownQuest">true</variable>
+  <variable name="firstshownminiwin_quest_help">true</variable>
+  <variable name="font_warnQuest">false</variable>
+  <variable name="font_warnminiwin_quest_help">false</variable>
+  <variable name="footer_bg_colourQuest">6908265</variable>
+  <variable name="footer_bg_colourminiwin_quest_help">6908265</variable>
+  <variable name="footer_text_colourQuest">65280</variable>
+  <variable name="footer_text_colourminiwin_quest_help">65280</variable>
+  <variable name="header_bg_colourQuest">6908265</variable>
+  <variable name="header_bg_colourminiwin_quest_help">6908265</variable>
+  <variable name="header_heightQuest">0</variable>
+  <variable name="header_heightminiwin_quest_help">1</variable>
+  <variable name="header_text_colourQuest">65280</variable>
+  <variable name="header_text_colourminiwin_quest_help">65280</variable>
+  <variable name="heightQuest">0</variable>
+  <variable name="height_paddingQuest">3</variable>
+  <variable name="height_paddingminiwin_quest_help">2</variable>
+  <variable name="heightminiwin_quest_help">0</variable>
+  <variable name="hyperlink_colourQuest">65535</variable>
+  <variable name="hyperlink_colourminiwin_quest_help">65535</variable>
+  <variable name="ignorebsetting">false</variable>
+  <variable name="ignorebsettingQuest">false</variable>
+  <variable name="ignorebsettingminiwin_quest_help">false</variable>
+  <variable name="ignorebsettingphelp">false</variable>
+  <variable name="layerQuest">0</variable>
+  <variable name="layerminiwin_quest_help">999</variable>
+  <variable name="lockwindowQuest">false</variable>
+  <variable name="lockwindowminiwin_quest_help">false</variable>
+  <variable name="maxlinesQuest">0</variable>
+  <variable name="maxlinesminiwin_quest_help">30</variable>
+  <variable name="maxtabsQuest">1</variable>
+  <variable name="maxtabsminiwin_quest_help">1</variable>
+  <variable name="plugin_colour">11829830</variable>
+  <variable name="plugin_colourphelp">11829830</variable>
+  <variable name="shade_with_headerQuest">false</variable>
+  <variable name="shade_with_headerminiwin_quest_help">false</variable>
+  <variable name="shadedQuest">false</variable>
+  <variable name="shadedminiwin_quest_help">false</variable>
+  <variable name="showevents">false</variable>
+  <variable name="showeventsQuest">false</variable>
+  <variable name="showeventsminiwin_quest_help">false</variable>
+  <variable name="showeventsphelp">false</variable>
+  <variable name="shownQuest">true</variable>
+  <variable name="shownminiwin_quest_help">false</variable>
+  <variable name="showresizeQuest">true</variable>
+  <variable name="showresizeminiwin_quest_help">true</variable>
+  <variable name="showtablineQuest">true</variable>
+  <variable name="showtablineminiwin_quest_help">true</variable>
+  <variable name="tab_bg_colourQuest">14474460</variable>
+  <variable name="tab_bg_colourminiwin_quest_help">14474460</variable>
+  <variable name="tab_border_colourQuest">14474460</variable>
+  <variable name="tab_border_colourminiwin_quest_help">14474460</variable>
+  <variable name="tab_text_colourQuest">855309</variable>
+  <variable name="tab_text_colourminiwin_quest_help">855309</variable>
+  <variable name="tdebug">false</variable>
+  <variable name="tdebugQuest">false</variable>
+  <variable name="tdebugminiwin_quest_help">false</variable>
+  <variable name="tdebugphelp">false</variable>
+  <variable name="text_colourQuest">0</variable>
+  <variable name="text_colourminiwin_quest_help">14474460</variable>
+  <variable name="textfontQuest">{
+  bold = false,
+  size = 10,
+  name = "noto mono",
+  underline = false,
+  strikeout = false,
+  italic = false,
+  }</variable>
+  <variable name="textfontminiwin_quest_help">{
+  name = "liberation sans",
+  size = 8,
+  }</variable>
+  <variable name="time">false</variable>
+  <variable name="time_colourQuest">8519755</variable>
+  <variable name="timephelp">false</variable>
+  <variable name="title_gradient1Quest">1381653</variable>
+  <variable name="title_gradient1miniwin_quest_help">1381653</variable>
+  <variable name="title_gradient2Quest">3355443</variable>
+  <variable name="title_gradient2miniwin_quest_help">3355443</variable>
+  <variable name="titlebarQuest">true</variable>
+  <variable name="titlebarminiwin_quest_help">true</variable>
+  <variable name="use_tabwinQuest">true</variable>
+  <variable name="use_tabwinminiwin_quest_help">false</variable>
+  <variable name="widthQuest">0</variable>
+  <variable name="width_paddingQuest">5</variable>
+  <variable name="width_paddingminiwin_quest_help">6</variable>
+  <variable name="widthminiwin_quest_help">0</variable>
+  <variable name="window_border_colourQuest">16777215</variable>
+  <variable name="window_border_colourminiwin_quest_help">16777215</variable>
+  <variable name="window_border_widthQuest">2</variable>
+  <variable name="window_border_widthminiwin_quest_help">2</variable>
+  <variable name="windowposQuest">-1</variable>
+  <variable name="windowposminiwin_quest_help">12</variable>
+  <variable name="xQuest">822</variable>
+  <variable name="xminiwin_quest_help">-1</variable>
+  <variable name="yQuest">401</variable>
+  <variable name="yminiwin_quest_help">-1</variable>
+</variables>
+</muclient>

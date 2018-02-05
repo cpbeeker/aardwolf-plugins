@@ -1,0 +1,1061 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+<muclient>
+<plugin
+   name="miniwin_eq"
+   author="Bast"
+   id="eee54da2a15c1bbb534ef093"
+   language="Lua"
+   purpose="shows eq in miniwindow"
+   save_state="y"
+   date_written="2009-02-13 09:28:14"
+   requires="4.52"
+   version="6.1"
+   >
+</plugin>
+
+<!--  Get our standard constants -->
+<include name="constants.lua"/>
+
+<!--  Triggers  -->
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require 'var'
+require 'pluginhelper'
+require "miniwin"
+require "tprint"
+require "commas"
+require "aardutils"
+require "tablefuncs"
+require "eqdb"
+require "copytable"
+require "colours"
+require "stringfuncs"
+require 'bastspell'
+require "formatitem"
+
+-- figure out how to get uncurse into the menu
+-- there is a nodrop, nocurse flag in invdetails for an item
+
+db = EQdb:new{}
+
+eqwin = Miniwin:new{name="EQ"}
+eqwin:set_default('header_height', 0)
+eqwin:set_default('width_padding', 4)
+eqwin:set_default('bg_colour', 'black')
+eqwin:set_default('header_bg_colour', 'black')
+eqwin:set_default('maxlines', 30)
+eqwin:set_default("maxtabs", 5)
+
+idwin = Miniwin:new{name="EQID"}
+idwin:set_default('header_height', 0)
+idwin:set_default('width_padding', 4)
+idwin:set_default('bg_colour', 'black')
+idwin:set_default('header_bg_colour', 'black')
+idwin:set_default('maxlines', 30)
+idwin:set_default("maxtabs", 5)
+idwin:set_default("windowpos", 12)
+
+eqdbcmd = nil
+detailswaiting = {}
+
+foundgroup = {}
+dontgroup = {}
+nogroup = {}
+
+filter = {}
+filter['Worn'] = {filtercol='wearslot', reverse=false}
+
+default_filter = {filtercol='place', reverse=false}
+
+function change_filter(container, filtercol, reverse, itype)
+  --print('change_filter', container, filtercol, reverse, itype)
+  if filter[container] == nil then
+    filter[container] = copytable.deep(default_filter)
+  end
+  filter[container] = {filtercol=filtercol, reverse=reverse, itype=itype}
+  oncontainerchange('"' .. container .. '"')
+end
+
+function runeqdbcmd(cmd)
+  if eqdbcmd == nil or eqdbcmd == '' then
+    eqdbcmd = GetPluginVariable("aaa56faed92ffc6146964abc", 'cmd')
+  end
+  Execute(eqdbcmd .. " " .. cmd)
+end
+
+function containermenu()
+  local menu = 'Containers | - | Worn | Inventory'
+  for i,v in pairs(db:getcontainers()) do
+    local titem = db:getitemdetails(v.serial)
+    if titem then
+      menu = menu .. ' | ' .. titem.name
+      if titem.identifier then
+        local identifier = strjoin(', ', titem.identifier)
+        identifier = ' - ' .. identifier
+        menu = menu .. identifier
+      end
+      menu = menu .. ' - ' .. tostring(titem.serial)
+    else
+      menu = menu .. ' | ' .. v.name .. ' - ' .. tostring(v.serial)
+    end
+  end
+  local result = WindowMenu (eqwin.winid, WindowInfo (eqwin.winid, 14), WindowInfo (eqwin.winid, 15), menu) --do menu
+  if result ~= '' and result ~= nil and result ~= 'Containers' then
+     local tdata = utils.split(result, '-')
+     local containerid = trim(tdata[#tdata])
+     adddata(containerid)
+     eqwin:changetotab(containerid)
+  end
+end
+
+function buildmenu(item)
+  local titem = db:getitemdetails(item.serial)
+  local container = item.containerid
+  local menu = item.name .. "|"
+  if item.type ~= 11 then
+    menu = menu .. "| Copy ID to Clipboard"
+    menu = menu  .. "| >Put "
+    for i,v in pairs(db:getcontainers()) do
+      menu = menu .. ' | ' .. ' in ' .. v.serial .. ' - ' .. strip_colours(v.name)
+    end
+  end
+  menu = menu .. '| <'
+  if container == 'Worn' then
+     menu = menu .. "| Remove "
+  end
+  if container ~= 'Worn' then
+     menu = menu .. "| Compare"
+     menu = menu .. "| Wear"
+  end
+  if container ~= 'Inventory' and container ~= 'Worn' then
+     menu = menu .. "| Get"
+  end
+  if item.type == 8 then
+     menu = menu .. "| Quaff"
+  end
+  if item.type == 2 then
+     menu = menu .. "| Recite"
+  end
+  menu = menu .. "| Identify "
+  if not item.shortflags:match('K') then
+    menu = menu .. "| Donate "
+  end
+  local tstr = 'Keep '
+  if item.shortflags:match('K') then
+    tstr = 'Unkeep '
+  end
+  menu = menu .. "| " .. tstr
+  if titem and titem.identifier ~= nil then
+    menu = menu .. "| >Identifiers | Add Identifier"
+    menu = menu .. "| Remove Identifier | <"
+  else
+    menu = menu .. "| Add Identifier"
+  end
+  if titem and titem.note ~= nil then
+    menu = menu .. "| >Note | Add Note"
+    menu = menu .. "| Remove Note | <"
+  else
+    menu = menu .. "| Add Note"
+  end
+  if item.containerid ~= 'Worn' then
+    local stylekey = item.name .. item.shortflags .. tostring(item.level)
+    if foundgroup[item.containerid][stylekey] and foundgroup[item.containerid][stylekey] > 1 and dontgroup[item.containerid][stylekey] then
+      menu = menu .. "| Group this item"
+    elseif foundgroup[item.containerid][stylekey] and foundgroup[item.containerid][stylekey] > 1 then
+      menu = menu .. "| Ungroup this item"
+    end
+  end
+  if item.type == 11 then
+      menu = menu .. " | Refresh Contents"
+  end
+
+  return menu
+end
+
+function mouseleft(item, result)
+  if result:match("in") then
+    local tresult = utils.split(result, ' ')
+    incontainer = tresult[2]
+    putobjectininv(item)
+    SendNoEcho('put ' .. item.serial .. ' ' .. incontainer)
+  elseif result:match("Refresh Contents") then
+    SendNoEcho('invdata ' .. item.serial)
+  elseif result:match("Add Identifier") then
+    local tresult = verify_string('', 'What identifier would you like to add?')
+    if tresult ~= nil then
+      runeqdbcmd('addid ' .. tostring(item.serial) .. ' ' .. tresult)
+    end
+  elseif result:match('Remove Identifier') then
+    local titem = db:getitemdetails(item.serial)
+    local tresult = utils.multilistbox('Which identifier do you want to delete?',
+                                       'Identifiers',
+                                       titem.identifier,
+                                       nil)
+    local resstr = ''
+    for i,v in pairs(tresult) do
+      resstr = resstr .. ' ' .. titem.identifier[i]
+    end
+    if resstr ~= '' then
+      runeqdbcmd('remid ' .. resstr)
+    end
+  elseif result:match("Add Note") then
+    local tresult = verify_string('', 'What note would you like to add?')
+    if tresult ~= nil then
+      runeqdbcmd('addnote ' .. tostring(item.serial) .. ' "' .. tresult .. '"')
+    end
+  elseif result:match('Remove Note') then
+    local titem = db:getitemdetails(item.serial)
+    local tresult = utils.multilistbox('Which note do you want to delete?',
+                                       'Notes',
+                                       titem.note,
+                                       nil)
+    local resstr = ''
+    if tresult and next(tresult) then
+      for i,v in pairs(tresult) do
+        runeqdbcmd('remnote ' .. tostring(titem.serial) .. ' ' .. tostring(i) )
+      end
+    end
+  elseif result:match("Identify") then
+    putobjectininv(item)
+    SendNoEcho('identify ' .. item.serial)
+    --SendNoEcho('invdetails ' .. item.serial)
+    putobjectincontainer(item, item.containerid)
+  elseif result:match("Remove") then
+    SendNoEcho('remove ' .. item.serial)
+  elseif result:match("Compare") then
+    putobjectininv(item)
+    SendNoEcho('compare ' .. item.serial)
+    putobjectincontainer(item, item.containerid)
+  elseif result:match("Donate") then
+    putobjectininv(item)
+    SendNoEcho('donate ' .. item.serial)
+  elseif result:match("Get") then
+    SendNoEcho('get ' .. item.serial .. ' ' .. item.containerid)
+  elseif result:match("Wear") then
+    putobjectininv(item)
+    SendNoEcho('wear ' .. item.serial)
+  elseif result:match("[Kk]eep") then
+    putobjectininv(item)
+    local tstr = 'keep '
+    if item.shortflags:match('K') then
+      tstr = 'unkeep '
+    end
+    SendNoEcho(tstr .. item.serial)
+    putobjectincontainer(item, item.containerid)
+  elseif result:match("Group this item") then
+    local stylekey = item.name .. item.shortflags .. tostring(item.level)
+    dontgroup[item.containerid][stylekey] = false
+    oncontainerchange('"' .. item.containerid .. '"')
+  elseif result:match("Ungroup this item") then
+    local stylekey = item.name .. item.shortflags .. tostring(item.level)
+    dontgroup[item.containerid][stylekey] = true
+    oncontainerchange('"' .. item.containerid .. '"')
+  elseif result:match("Quaff") then
+    putobjectininv(item)
+    SendNoEcho('quaff ' .. tostring(item.serial))
+  elseif result:match("Recite") then
+    putobjectininv(item)
+    SendNoEcho('recite ' .. tostring(item.serial))
+  elseif result:match("Copy ID to Clipboard") then
+    SetClipboard(item.serial)
+    Note("copied id " .. item.serial .. " to Clipboard")
+  end
+end
+
+mouseright = mouseleft
+
+function buildifiltermenu(item)
+  -- convert to use menuclick
+  local tmenu = strjoin('|', objecttypes)
+  tmenu = 'All | ' .. tmenu
+  return tmenu
+end
+
+function ifiltermouse(item, result)
+  local curfilt = filter[item.containerid]
+  --print('You picked', result, 'for container', item.containerid)
+  local ifilt = objecttypesrev[result]
+  change_filter(item.containerid, curfilt.filtercol, curfilt.reverse, ifilt)
+end
+
+menus = {
+ Wornmenuleft = buildmenu,
+ Wornmouseleft = mouseleft,
+ Inventorymenuleft = buildmenu,
+ Inventorymouseleft = mouseleft,
+ containermenuleft = buildmenu,
+ containermouseleft = mouseleft,
+ ifiltermenuleft = buildifiltermenu,
+ ifiltermenuright = buildifiltermenu,
+ ifiltermouseright = ifiltermouse,
+ ifiltermouseleft = ifiltermouse,
+}
+
+function menuclick(item, menu)
+  local menutype = 'unk'
+  if menu ~= nil then
+    menutype = menu
+  elseif item.containerid ~= 'Worn' and item.containerid ~= 'Inventory' then
+    menutype = 'container'
+  else
+    menutype = item.containerid
+  end
+  return function (win, flags, hotspot)
+    local item = item
+    local menu = ''
+    local mousebutton = ''
+    --make text for menu options
+    -- right click for window menu, left click for plugin menu
+    if bit.band(flags, 0x10) ~= 0 then
+      -- left
+      mousebutton = 'left'
+    elseif bit.band(flags, 0x20) ~= 0 then
+      -- right
+      mousebutton = 'right'
+    end
+    local menufunc = menus[menutype .. 'menu' .. mousebutton]
+    if menufunc then
+      menu = menufunc(item)
+      local result = WindowMenu (eqwin.winid, WindowInfo (eqwin.winid, 14), WindowInfo (eqwin.winid, 15), menu) --do menu
+      if result:match(' - ') then
+        local tresult = utils.split(result, '-')
+        result = trim(tresult[1])
+      end
+      if result ~= "" then
+        menus[menutype .. 'mouse' .. mousebutton](item, result)
+      end
+    end
+  end
+end
+
+function winchangefilter(container, column, curfilt, reverse, itype)
+  if curfilt == column then
+    if reverse then
+      change_filter(container, 'place', false, itype)
+    else
+      change_filter(container, column, true, itype)
+    end
+  else
+    change_filter(container, column, false, itype)
+  end
+end
+
+function builditem(item)
+
+  local lstyles = formatitem(item)
+
+  idwin:addtab(item.serial, lstyles)
+  idwin:changetotab(item.serial)
+  if eqwin.showid then
+    idwin:show(true)
+  end
+end
+
+function buildwornitem(item)
+  local lstyles = {}
+
+  local style = {}
+  style.text = '['
+  style.textcolour = 'green'
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format(' %-8s ', wearlocs[item.wearslot])
+  if wearlocs[item.wearslot] == 'wield' or wearlocs[item.wearslot] == 'second' then
+    style.textcolour = 'red'
+  else
+    style.textcolour = 'steelblue'
+  end
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = '] '
+  style.textcolour = 'green'
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = '('
+  table.insert(lstyles, style)
+  count = 0
+  for i,flag in pairs(flags) do
+    local colour = flagcolours[flag]
+    local style = {}
+    count = count + 1
+    if string.find(item.shortflags, flag) then
+      if count == 1 then
+        style.text = ' ' .. flag .. ' '
+      else
+        style.text = flag .. ' '
+      end
+      style.textcolour = colour
+      if flag == 'K' then
+        style.mouseup = function ()
+              putobjectininv(item)
+              SendNoEcho('unkeep ' .. tostring(item.serial))
+              putobjectincontainer(item, item.containerid)
+          end
+
+      else
+        style.mouseup = nofunc
+      end
+      style.hint = flagname[flag]
+    else
+      if flag == 'K' then
+        style.mouseup = function ()
+              putobjectininv(item)
+              SendNoEcho('keep ' .. tostring(item.serial))
+              putobjectincontainer(item, item.containerid)
+        end
+      end
+      if count == 1 then
+        style.text = '   '
+      else
+        style.text = '  '
+      end
+    end
+    table.insert(lstyles, style)
+  end
+  local style = {}
+  style.text = ')'
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = ' '
+  table.insert(lstyles, style)
+
+  -- Level
+  local style = {}
+  style.text = '('
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format("%3s", tostring(item.level or ""))
+  style.textcolour = 'lightgreen'
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = ') '
+  table.insert(lstyles, style)
+
+  -- Name
+  local style = {}
+  local newstyles = ColoursToStyles(item.cname)
+  local length = 0
+  local itemlength = 47
+  --print(item.name)
+  for i=1,#newstyles do
+    local tstyle = newstyles[i]
+    local style = copytable.shallow(tstyle)
+    if eqwin.showid then
+      style = popup_style(idwin, tstyle.text, tstyle.textcolour, 0x20)
+    end
+    style.backcolour = tstyle.backcolour
+    --print(length, #style.text, style.text)
+    if length + #style.text >= itemlength and i ~= 1 then
+      local tl = itemlength - length
+      if tl < 1 then
+        break
+      else
+        style.text = string.sub(style.text, 1, tl)
+      end
+    else
+      style.text = string.sub(style.text, 1, itemlength)
+    end
+    length = length + #style.text
+    if item.serial then
+      style.hint = "ID: " .. tostring(item.serial)
+      style.mouseup = menuclick(item)
+      style.mouseover = function ()
+        --print('got mouseover')
+        detailswaiting[tonumber(item.serial)] = true
+        --print('calling plugin in mouseover', item.serial)
+        local rc = CallPlugin("aaa56faed92ffc6146964abc", 'getitemdetails', item.serial)
+        --print(rc)
+      end
+    end
+
+    --tprint(style)
+    table.insert(lstyles, style)
+  end
+
+  return lstyles
+end
+
+function buildworn(container)
+  local styles = {}
+  local tfilt = filter[container]['filtercol']
+  local reverse = filter[container]['reverse']
+  local itype = filter[container]['itype']
+
+  local contents = db:getcontainercontents(container, tfilt, reverse, itype)
+  local titem = {}
+  if not next(contents) then
+    titem = {containerid=container}
+  else
+    titem = copytable.deep(contents[1])
+  end
+  local lstyles = {}
+
+  local style = {}
+  style.text = '['
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format(' %-8s ', 'Location')
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = '] '
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = '('
+  table.insert(lstyles, style)
+
+  local count=0
+  for i,flag in pairs(flags) do
+    local colour = flagcolours[flag]
+    local style = {}
+    count = count + 1
+    if count == 1 then
+      style.text = ' ' .. flag .. ' '
+    else
+      style.text = flag .. ' '
+    end
+    style.textcolour = colour
+    style.mouseup = nofunc
+    style.hint = flagname[flag]
+    table.insert(lstyles, style)
+  end
+
+  local style = {}
+  style.text = ')'
+  table.insert(lstyles, style)
+
+  -- Level
+  local style = {}
+  style.text = '  '
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format("%3s", 'Lvl')
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = '  '
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format("%s", 'Item Name')
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = '  '
+  table.insert(lstyles, style)
+
+  table.insert(styles, lstyles)
+
+  local lstyles = {}
+
+  lstyles.bottomborder = true
+  lstyles.bordercolour = 'green'
+  table.insert(styles, lstyles)
+
+  local header=styles
+
+  local styles = {}
+
+  local itemsbywearloc = {}
+  if next(contents) then
+    for i,v in pairs(contents) do
+      itemsbywearloc[v.wearslot] = v
+    end
+  end
+
+  for i=0,#wearlocs do
+    actualslot = i
+    local titem = itemsbywearloc[actualslot]
+    local lstyles = {}
+    if titem then
+      lstyles = buildwornitem(titem)
+    else
+      --local slotitems = db:getitemsbywearslot(actualslot)
+      --print('slot', actualslot)
+      --tprint(slotitems)
+      local doit = true
+      if optionallocs[actualslot] then
+        doit = false
+      end
+      if ((actualslot == 23 or actualslot == 26) and itemsbywearloc[25]) then
+        doit = false
+      end
+      if doit then
+        lstyles = buildwornitem({cname="@r< empty >@w", shortflags="", wearslot=actualslot})
+      end
+    end
+    if next(lstyles) then
+      table.insert(styles, lstyles)
+    end
+  end
+  return header, styles
+
+end
+
+buildfuncs = {
+ Worn=buildworn,
+}
+
+function builddata(container)
+  local styles = {}
+  local tfilt = filter[container]['filtercol']
+  local reverse = filter[container]['reverse']
+  local itype = filter[container]['itype']
+
+  local contents = db:getcontainercontents(container, tfilt, reverse, itype)
+  local titem = {}
+  if not next(contents) then
+    titem = {containerid=container}
+  else
+    titem = copytable.deep(contents[1])
+  end
+  local lstyles = {}
+
+  -- # of items
+  if eqwin.groupitems then
+    local style = {}
+    style.text = string.format(" %3s  ", '#')
+    style.mouseup = function ()
+      nogroup[container] = not nogroup[container]
+      if nogroup[container] then
+        dontgroup[container] = {}
+      else
+        dontgroup[container] = copytable.shallow(foundgroup[container])
+      end
+      oncontainerchange('"' .. container .. '"')
+    end
+    style.hint = 'Click to group/ungroup all items in this container'
+    table.insert(lstyles, style)
+  end
+
+
+  local style = {}
+  style.text = '('
+  table.insert(lstyles, style)
+
+  local count=0
+  for i,flag in pairs(flags) do
+    local colour = flagcolours[flag]
+    local style = {}
+    count = count + 1
+    if count == 1 then
+      style.text = ' ' .. flag .. ' '
+    else
+      style.text = flag .. ' '
+    end
+    style.textcolour = colour
+    style.mouseup = nofunc
+    style.hint = flagname[flag]
+    table.insert(lstyles, style)
+  end
+
+  local style = {}
+  style.text = ')'
+  table.insert(lstyles, style)
+
+  -- Level
+  local style = {}
+  style.text = '  '
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format("%3s", 'Lvl')
+  style.mouseup = function ()
+      winchangefilter(container, 'level', tfilt, reverse, itype)
+    end
+  style.hint = 'Click the column to sort by level'
+  table.insert(lstyles, style)
+
+  local style = {}
+  if tfilt == 'level' then
+    if reverse then
+      style.text = '^ '
+    else
+      style.text = 'v '
+    end
+  else
+    style.text = '  '
+  end
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.format("%s", 'Item Name')
+  style.mouseup = function ()
+      winchangefilter(container, 'name', tfilt, reverse, itype)
+    end
+  style.hint = 'Click the column to sort by name'
+  table.insert(lstyles, style)
+
+  local style = {}
+  if tfilt == 'name' then
+    if reverse then
+      style.text = '^ '
+    else
+      style.text = 'v '
+    end
+  else
+    style.text = '  '
+  end
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = string.rep(' ', 15)
+  table.insert(lstyles, style)
+
+  local style = {}
+  style.text = 'Filter: '
+  style.textcolour = 'cyan'
+  table.insert(lstyles, style)
+
+  local style = {}
+  if itype then
+    style.text = objecttypes[tonumber(itype)]
+  else
+    style.text = 'None'
+  end
+  style.textcolour = 'cyan'
+  style.mouseup = menuclick(titem, 'ifilter')
+  table.insert(lstyles, style)
+
+  table.insert(styles, lstyles)
+
+  local lstyles = {}
+
+  lstyles.bottomborder = true
+  lstyles.bordercolour = 'green'
+  table.insert(styles, lstyles)
+
+  local header=styles
+
+  local styles = {}
+  local numstyles = {}
+  foundgroup[container] = {}
+  if not next(contents) then
+    table.insert(styles, {{text='Nothing', hjust='center'}})
+  else
+    for key,item in pairs(contents) do
+      local stylekey = item.name .. item.shortflags .. tostring(item.level)
+      local doit = true
+      if eqwin.groupitems
+           and numstyles[stylekey] then
+        if not dontgroup[container] then
+          dontgroup[container] = {}
+        end
+        if foundgroup[container][stylekey] == nil then
+          foundgroup[container][stylekey] = 2
+        else
+          foundgroup[container][stylekey] = foundgroup[container][stylekey] + 1
+        end
+        if dontgroup[container][stylekey] then
+
+        else
+          doit = false
+          numstyles[stylekey].text = string.format("(%3d) ", foundgroup[container][stylekey])
+        end
+      end
+      if doit then
+        local lstyles = {}
+        if type(item) == 'table' then
+
+          -- # of items
+          if eqwin.groupitems then
+            local style = {}
+            if eqwin.groupitems and dontgroup[container] and dontgroup[container][stylekey] then
+              style.text = string.format("   -  ")
+            else
+              style.text = string.format("      ")
+            end
+            style.textcolour = 'white'
+            style.hint = "click here to group/ungroup this item"
+            style.mouseup = function ()
+              dontgroup[container][stylekey] = not dontgroup[item.containerid][stylekey]
+              oncontainerchange('"' .. container .. '"')
+            end
+            if not numstyles[stylekey] then
+              numstyles[stylekey] = style
+            end
+            table.insert(lstyles, style)
+
+          end
+
+          local style = {}
+          style.text = '('
+          table.insert(lstyles, style)
+          count = 0
+          for i,flag in pairs(flags) do
+            local colour = flagcolours[flag]
+            local style = {}
+            count = count + 1
+            if string.find(item.shortflags, flag) then
+              if count == 1 then
+                style.text = ' ' .. flag .. ' '
+              else
+                style.text = flag .. ' '
+              end
+              style.textcolour = colour
+              if flag == 'K' then
+                style.mouseup = function ()
+                    putobjectininv(item)
+                    SendNoEcho('unkeep ' .. tostring(item.serial))
+                    putobjectincontainer(item, item.containerid)
+                  end
+
+              else
+                style.mouseup = nofunc
+              end
+              style.hint = flagname[flag]
+            else
+              if flag == 'K' then
+                style.mouseup = function ()
+                    putobjectininv(item)
+                    SendNoEcho('keep ' .. tostring(item.serial))
+                    putobjectincontainer(item, item.containerid)
+                end
+              end
+              if count == 1 then
+                style.text = '   '
+              else
+                style.text = '  '
+              end
+            end
+            table.insert(lstyles, style)
+          end
+          local style = {}
+          style.text = ')'
+          table.insert(lstyles, style)
+
+          local style = {}
+          style.text = ' '
+          table.insert(lstyles, style)
+
+
+          -- Level
+          local style = {}
+          style.text = '('
+          table.insert(lstyles, style)
+
+          local style = {}
+          style.text = string.format("%3d", tonumber(item.level))
+          style.textcolour = 'lightgreen'
+          table.insert(lstyles, style)
+
+          local style = {}
+          style.text = ') '
+          table.insert(lstyles, style)
+
+          -- Name
+          local style = {}
+          local newstyles = ColoursToStyles(item.cname)
+          local length = 0
+          local itemlength = 47
+          --print(item.name)
+          for i=1,#newstyles do
+            local tstyle = newstyles[i]
+            local style = copytable.shallow(tstyle)
+            if eqwin.showid then
+              style = popup_style(idwin, tstyle.text, tstyle.textcolour, 0x20)
+            end
+            style.backcolour = tstyle.backcolour
+
+            --print(length, #style.text, style.text)
+            if length + #style.text >= itemlength and i ~= 1 then
+              local tl = itemlength - length
+              if tl < 1 then
+                break
+              else
+                style.text = string.sub(style.text, 1, tl)
+              end
+            else
+              style.text = string.sub(style.text, 1, itemlength)
+            end
+            length = length + #style.text
+            style.hint = "ID: " .. tostring(item.serial)
+            style.mouseup = menuclick(item)
+            --tprint(style)
+            table.insert(lstyles, style)
+            style.mouseover = function ()
+              --print('got mouseover')
+              if container == 'Inventory' then
+                detailswaiting[tonumber(item.serial)] = true
+                --print('calling plugin in mouseover', item.serial)
+                local rc = CallPlugin("aaa56faed92ffc6146964abc", 'getitemdetails', item.serial)
+                --print(rc)
+              else
+                local titem = db:getitemdetails(item.serial)
+                if titem and next(titem) then
+                  builditem(titem)
+                end
+              end
+            end
+          end
+          --tprint(newstyles)
+          --style.text = item.cname
+          --style.hint = "ID: " .. tostring(item.serial)
+          --tprint(style)
+          --table.insert(lstyles, style)
+
+          table.insert(styles, lstyles)
+        end
+      end
+    end
+  end
+  numstyles = {}
+  return header, styles
+end
+
+tablocs = {
+ Worn = 1,
+ Inventory = 2,
+}
+
+function adddata(tabname, data)
+  print('adddata: ', tabname)
+  if filter[tabname] == nil then
+    filter[tabname] = copytable.deep(default_filter)
+  end
+  local tfunc = buildfuncs[tabname] or builddata
+  local header, body = tfunc(tabname)
+  eqwin:addtab(tabname, body, header, nil, nil, tablocs[tabname])
+  eqwin:enable()
+  if tabname == 'Inventory' or tabname == 'Worn' then
+    eqwin:stickytab(tabname)
+  end
+end
+
+function rebuildall()
+  for i,v in pairs(eqwin.tabs) do
+    oncontainerchange('"' .. i .. '"')
+  end
+end
+
+function oncontainerchange(container)
+  local container = assert (loadstring ('return ' .. container or ""))()
+  db:close('oncontainerchange', true)
+  adddata(container)
+end
+
+function onitemchange(item)
+  local titem = assert (loadstring ('return ' .. item or ""))()
+  titem.serial = tonumber(titem.serial)
+  --print('got item', titem.serial)
+  --tprint(detailswaiting)
+  --tprint(titem)
+  if detailswaiting[titem.serial] or idwin:hastab(titem.serial) then
+    detailswaiting[titem.serial] = nil
+    builditem(titem)
+  end
+end
+
+function refresh()
+  runeqdbcmd('refresh')
+end
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+  phelper:OnPluginBroadcast(msg, id, name, text)
+
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+  --OnPluginDisable is automatically called by pluginhelper
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin ("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+  ldplugin ("eqDB", "aaa56faed92ffc6146964abc")
+  ldplugin ("broadcast_spellsskills", "aaa72f3b5453567e2bba9d50")
+
+  phelper:register_remote("aaa56faed92ffc6146964abc", "container_change", "oncontainerchange")
+  phelper:register_remote("aaa56faed92ffc6146964abc", "itemchange", "onitemchange")
+
+  phelper:OnPluginEnable()
+  -- always create windows after OnPluginEnable due to default variable handling
+
+  if IsConnected() then
+    oncontainerchange('"Worn"')
+    oncontainerchange('"Inventory"')
+  end
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+-- add a button that lists all containers (with name and identifiers)
+eqwin:add_button('containers', {text=" C ", mouseup=function (win, tflags, hotspotid)
+                        containermenu()
+                      end, hint="Change containers", place=20})
+
+eqwin:add_button('refresh', {text=" R ", mouseup=function (win, tflags, hotspotid)
+                        refresh()
+                      end, hint="Refresh eq", place=80})
+eqwin:add_setting("groupitems", {help="whether to group items, this is the global flag", type="bool", default=verify_bool("true"), sortlev=1, longname="Group items in the window", after=rebuildall})
+eqwin:add_setting("showid", {help="show idwin on mouseover", type="bool", default=verify_bool("true"), sortlev=1, longname="Show identify window on mouseover", after=rebuildall})
+
+phelper:set_default('cmd', 'mneq')
+phelper:set_default('plugin_colour', 'steelblue')
+
+phelper:add_pobject('win', eqwin)
+phelper:add_pobject('win', idwin)
+
+phelper:enable()
+
+phelper:addaardhelps{"Help", "Contents", "Index", "NewHelp"}
+phelper:addaardcmds{"help", "contents", "index"}
+
+phelper:addlink('Plugin', "miniwin_help Wiki page", "http://code.google.com/p/bastmush/wiki/miniwin_eq",
+                        "The wiki page for this plugin")
+
+]]>
+</script>
+</muclient>

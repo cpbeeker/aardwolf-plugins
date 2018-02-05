@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+<muclient>
+<plugin
+   name="miniwin_map"
+   author="Bast"
+   id="eee20c766a44169e0f1d9585"
+   language="Lua"
+   purpose="redirect map to miniwin"
+   date_written="2008-07-18"
+   requires="4.73"
+   version="6.1"
+   save_state="y"
+   >
+<description trim="y">
+Redirects the map to a mini window.
+</description>
+
+</plugin>
+
+<!--  Triggers  -->
+<triggers>
+  <trigger
+      enabled="y"
+      match="{coords}*"
+      send_to="12"
+      sequence="100"
+      script="process_coords"
+      omit_from_output="y"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="&lt;MAPSTART&gt;"
+   script="map_redirect"
+   omit_from_output="y"
+   name="map_start"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="n"
+   match="*"
+   script="map_redirect"
+   name="multi_line_map"
+   omit_from_output="y"
+   sequence="10"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="&lt;MAPEND&gt;"
+   script="map_redirect"
+   omit_from_output="y"
+   name="map_end"
+   sequence="5"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="You open *."
+   sequence="100"
+   send_to="12"
+  >
+  <send>SendNoEcho ("map")</send>
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="You close *."
+   sequence="100"
+   send_to="12"
+  >
+  <send>SendNoEcho ("map")</send>
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="* opens*."
+   sequence="100"
+   send_to="12"
+  >
+  <send>SendNoEcho ("map")</send>
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="* closes*."
+   sequence="100"
+   send_to="12"
+  >
+  <send>SendNoEcho ("map")</send>
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="You can now sense anger in your immediate area."
+   sequence="100"
+   send_to="12"
+  >
+  <send>SendNoEcho ("map")</send>
+  </trigger>
+  <trigger
+   enabled="y"
+   match="Your journey was broken by the need to defend yourself."
+   sequence="100"
+   send_to="12"
+  >
+  <send>SendNoEcho ("map")</send>
+  </trigger>
+</triggers>
+
+
+<!--  Script  -->
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require 'var'
+require 'pluginhelper'
+require "miniwin"
+require "tprint"
+require "commas"
+require "serialize"
+require "ldplugin"
+require "findfile"
+
+nfile = scan_dir_for_file (GetInfo(60), "telnet_options.lua")
+
+if nfile then
+  -- pull in telnet option handling
+  dofile (nfile)
+else
+  print("Could not load telnet_options.lua, please copy it to your plugin directory")
+end
+
+Mapwinc = Miniwin:subclass()
+
+function Mapwinc:post_create_window_internal()
+  super(self)
+  if PKroom and self.changeborderpkroom then
+    check (WindowRectOp (self.winid, 1, 0, 0, 0, 0, self:get_colour('pk_window_border_colour')))
+    check (WindowRectOp (self.winid, 1, 1, 1, -1, -1, self:get_colour('pk_window_border_colour')))
+  end
+end
+
+
+mapwin = Mapwinc:new{name="Map"}
+mapwin:add_setting("pk_window_border_colour", {help="the colour of the window", type="colour", default=verify_colour("red"), sortlev=35, longname="Window Border colour when in PK room"})
+mapwin:add_setting("changeborderpkroom", {help="toggle to change the border when in a pk room", type="bool", default=false, sortlev=35, longname="Change Window Border colour when in PK Room"})
+mapwin:set_default('header_height', 2)
+mapwin:set_default('height_padding', 3)
+mapwin:set_default('width_padding', 4)
+
+
+legwin = Miniwin:new{name="Legend"}
+legwin:set_default('header_height', 0)
+legwin:set_default('windowpos', 12)
+legwin:set_default('use_tabwin', false)
+
+map_lines = {}
+coords = nil
+PKroom = false
+Graffiti = false
+current_room = -100
+mapheader = {}
+maptext = {}
+
+dirmap = {
+  e = 'east',
+  w = 'west',
+  n = 'north',
+  s = 'south',
+  u = 'up',
+  d = 'down'
+}
+
+info = {
+"@WMap legend:@w",
+"",
+"  @M#@w  - You                      --- - North/south wall",
+"  @R*@w  - Other players             |  - East/west wall",
+"  @Y!@w  - Mobiles                   +  - Door (closed)",
+"  @C!@w  - Pet/other charmed mob     @B+@w  - Door (locked)",
+"  @R!@w  - Angry mob (with Sense     >  - Up exit",
+"       Anger cast)               @y>@w  - Up exit (closed)",
+"  @G!@w  - Unkillable Mob            <  - Down exit",
+"  @G$@w  - Shopkeeper                @y<@w  - Down exit (closed)",
+"",
+" @C[@W?@C]@w - Area exit                 @R#@w  - PK-flagged room",
+" @G[@W?@G]@w - Clan public hall exit     @RD@w  - Donation room",
+"",
+"@WTerrains:@w",
+"",
+" [ ]   Inside             . .   City",
+" @g, `@w   Field              @G; ;@w   Hills",
+" @y/@w     Mountain           @B~ ~@w   Water",
+" @B~ ~@w   Waternoswim        @c. .@w   Air",
+" @y~ ~@w   Desert             @Y% %@w   Quicksand",
+" @b~ ~@w   Underwater         @C~ ~@w   Ice",
+" @B. .@w   Underground        - -   East/West road",
+" . .   North/South road   @C~ ~@w   River",
+" @R/@w     Volcano            @b% %@w   Cave",
+" # #   Dungeon            @g( *@w   Forest",
+}
+
+function process_coords ( name, line, wildcards, styles )
+  local tcoords = wildcards[1]
+  if tcoords == "-1" then
+    coords = nil
+    return
+  end
+  local tstyle = {}
+  style = {}
+  style.text = "["
+  style.len = #style.text
+  style.backcolour = mapwin.bg_colour
+  style.textcolour = 0x00D600
+  style.style = 0
+  table.insert (tstyle, style)
+  style = {}
+  style.text = " Coords: "
+  style.len = #style.text
+  style.backcolour = mapwin.bg_colour
+  style.textcolour = 0xF0FFFF
+  style.style = 0
+  table.insert (tstyle, style)
+  style = {}
+  style.text = tcoords
+  style.len = #style.text
+  style.backcolour = mapwin.bg_colour
+  style.textcolour = 0x00D600
+  style.style = 0
+  table.insert (tstyle, style)
+  style = {}
+  style.text = " ]"
+  style.len = #style.text
+  style.backcolour = mapwin.bg_colour
+  style.textcolour = 0x00D600
+  style.style = 0
+  table.insert (tstyle, style)
+
+
+  coords = tstyle
+end
+
+function godir(win, flags, hotspot_id)
+  SendNoEcho(dirmap[hotspot_id:lower()])
+end
+
+function godirlocked(win, flags, hotspot_id)
+  SendNoEcho('open ' .. dirmap[hotspot_id:lower()])
+  SendNoEcho(dirmap[hotspot_id:lower()])
+end
+
+function goenter(win, flags, hotspot_id)
+    phelper:mdebug('enter', hotspot_id)
+--  SendNoEcho('enter ' .. dir)
+end
+
+
+dirfunc = {}
+dirfunc['E'] = godir
+dirfunc['(E)'] = godirlocked
+dirfunc['W'] = godir
+dirfunc['(W)'] = godirlocked
+dirfunc['N'] = godir
+dirfunc['(N)'] = godirlocked
+dirfunc['S'] = godir
+dirfunc['(S)'] = godirlocked
+dirfunc['U'] = godir
+dirfunc['(U)'] = godirlocked
+dirfunc['D'] = godir
+dirfunc['(D)'] = godirlocked
+
+
+function convert_exits(styles)
+  local tstyles = {}
+  for i,v in ipairs(styles) do
+    if v.text:find(':') then
+      phelper:mdebug(v)
+      local texits = {}
+      local tvar = utils.split(v.text, " ")
+      for t,e in ipairs(tvar) do
+        local estyle = {}
+        estyle.textcolour = v.textcolour
+        estyle.text = e .. ' '
+        local test = dirfunc[e]
+        if test ~= nil then
+          if test == godirlocked then
+            local replacements = {['('] = '', [')'] = ''}
+            estyle.hotspot_id = string.gsub(e, ".", replacements)
+          else
+            estyle.hotspot_id = e
+          end
+          estyle.mousedown = test
+        end
+        table.insert(tstyles, estyle)
+      end
+    else
+      table.insert(tstyles, v)
+    end
+  end
+
+  style = popup_style(legwin, "LG ", "yellow")
+  style.hjust = "right"
+  table.insert (tstyles, style)
+  return tstyles
+end
+
+flagfuncs = {
+  graffiti = function ()
+            SendNoEcho('read graffiti')
+        end
+
+}
+
+function parse_map(map)
+  local header = {}
+  local text = {}
+  if #map > 19 then
+    if trim(map[2][1].text) == "" then
+      table.remove(map, 2)
+    elseif trim(map[3][1].text) == "" then
+      table.remove(map, 3)
+    end
+  end
+  for i,line in ipairs(map) do
+    for i,v in ipairs(line) do
+      v.backcolour = "bg_colour"
+      v.nocolourconvert = true
+    end
+    if i <= 2 then
+      table.insert(header, line)
+    else
+      if #line > 2 and line[2].text:find('Exits') then
+        line = convert_exits(line)
+      end
+      table.insert(text, line)
+    end
+  end
+  if coords then
+    text[#text - 1] = coords
+  end
+  if room.details == "" then
+    tflags = utils.split(room.details, ",")
+    local styles = {}
+
+    local style = {}
+    style.text = '[ '
+    style.textcolour = 0x00D600
+    table.insert(styles, style)
+
+    local style = {}
+    style.text = 'Flags'
+    style.textcolour = 'white'
+    table.insert(styles, style)
+
+    local style = {}
+    style.text = ': None ]'
+    style.textcolour = 0x00D600
+    table.insert(styles, style)
+
+    table.insert(text, styles)
+  else
+    tflags = utils.split(room.details, ",")
+    local styles = {}
+
+    local style = {}
+    style.text = '[ '
+    style.textcolour = 0x00D600
+    table.insert(styles, style)
+
+    local style = {}
+    style.text = 'Flags'
+    style.textcolour = 'white'
+    table.insert(styles, style)
+
+    local style = {}
+    style.text = ':'
+    style.textcolour = 0x00D600
+    table.insert(styles, style)
+
+    for i,v in ipairs(tflags) do
+      local style = {}
+      style.text = ' ' .. string.upper(v:sub(1,2))
+      style.textcolour = 0x00D600
+      style.hint = v
+      style.mouseover = empty
+      if flagfuncs[v] ~= nil then
+        style.mouseup = flagfuncs[v]
+      end
+
+      table.insert(styles, style)
+    end
+
+    local style = {}
+    style.text = ' ]'
+    style.textcolour = 0x00D600
+    table.insert(styles, style)
+
+    table.insert(text, styles)
+  end
+  --tprint(text)
+  return header, text
+end
+
+-- map redirector
+function map_redirect (name, line, wildcards, styles)
+  EnableTrigger ("multi_line_map", true)  -- capture subsequent lines
+
+  if name == "map_start" then
+    map_lines = {}
+  elseif name == "map_end" then
+    EnableTrigger ("multi_line_map", false)  -- no more lines to go
+    refreshmap()
+  else
+    table.insert (map_lines, styles)
+  end -- if
+
+end -- function map_redirect
+
+function refreshmap()
+  if room and current_room == tonumber(room.num) then
+    mapheader = {}
+    maptext = {}
+    mapheader, maptext = parse_map(map_lines)
+
+    mapwin:enable()
+    mapwin:addtab('default', maptext, mapheader, true)
+  end
+end
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+  phelper:OnPluginBroadcast(msg, id, name, text)
+
+  if not legwin:hastab('default') then
+    legwin:enable()
+    legwin:addtab('default', info, nil, true)
+  end
+
+  if id == '3e7dedbe37e44942dd46d264' then
+    if text:find("room.info") then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","room.info")
+      room = assert (loadstring ('return ' .. gmcparg or ""))()
+      if room and current_room ~= tonumber(room.num) then
+        current_room = tonumber(room.num)
+        if room.details:find("pk") then
+          PKroom = true
+        else
+          PKroom = false
+        end
+        if room.details:find("graffiti") then
+          Graffiti = true
+        else
+          Graffiti = false
+        end
+        mapheader = {}
+        maptext = {}
+        mapheader, maptext = parse_map(map_lines)
+
+        mapwin:enable()
+        mapwin:addtab('default', maptext, mapheader, true)
+      end
+    end
+  end
+end
+
+function requestmap()
+    SendNoEcho('map')
+    CallPlugin("3e7dedbe37e44942dd46d264","Send_GMCP_Packet","request room")
+end
+
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+  --OnPluginDisable is automatically called by pluginhelper
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin ("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+
+  phelper:OnPluginEnable()
+
+  if IsConnected() then
+    DoAfterSpecial(.5, "requestmap()", 12)
+  end
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+  if GetPluginInfo(GetPluginID (), 17) and IsConnected() then
+    TelnetOptionOff (TELOPT_MAP)
+    TelnetOptionOff (TELOPT_ROOM_NAMES)
+    TelnetOptionOff (TELOPT_EXIT_NAMES)
+  end
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+  TelnetOptionOn (TELOPT_AUTOMAP)
+  TelnetOptionOff (TELOPT_SHORTMAP)
+  TelnetOptionOn (TELOPT_MAP)
+  TelnetOptionOn (TELOPT_ROOM_NAMES)
+  TelnetOptionOn (TELOPT_EXIT_NAMES)
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'mmap')
+phelper:set_default('plugin_colour', 'steelblue')
+
+phelper:add_pobject('win', mapwin)
+phelper:add_pobject('legend', legwin)
+
+phelper:enable()
+
+phelper:addaardhelps{"Map", "Automap", "Maprun", "Maptags", "Speedwalks", "Academy-Geography"}
+phelper:addaardcmds{"map", "automap", "maprun", "tags", "runto"}
+
+]]>
+</script>
+</muclient>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- MuClient version 4.98 -->
+<!-- Written by Nick Gammon -->
+<!-- Home Page: http://www.mushclient.com/ -->
+
+<!-- Plugin state saved. Plugin: "Aardwolf_Chat_Capture_Miniwindow". World: "scanAardwolf". -->
+
+<muclient>
+
+<!-- variables -->
+
+<variables
+   muclient_version="4.98"
+   world_file_version="15"
+  >
+  <variable name="WINDOW_HEIGHT">404.4</variable>
+  <variable name="WINDOW_WIDTH">254</variable>
+  <variable name="channels_table">channels_table = {}
+  channels_table.gametalk = {}
+    channels_table.gametalk.capture = true
+  channels_table.restores = {}
+    channels_table.restores.capture = true
+  channels_table.debate = {}
+    channels_table.debate.capture = true
+  channels_table.music = {}
+    channels_table.music.capture = true
+  channels_table.group = {}
+    channels_table.group.capture = true
+  channels_table.gclan = {}
+    channels_table.gclan.capture = true
+  channels_table.barter = {}
+    channels_table.barter.capture = true
+  channels_table.rp = {}
+    channels_table.rp.capture = true
+  channels_table.clantalk = {}
+    channels_table.clantalk.capture = true
+  channels_table.market = {}
+    channels_table.market.capture = true
+  channels_table.wardrums = {}
+    channels_table.wardrums.capture = true
+  channels_table.nobletalk = {}
+    channels_table.nobletalk.capture = true
+  channels_table.newbie = {}
+    channels_table.newbie.capture = true
+  channels_table.tell = {}
+    channels_table.tell.capture = true
+  channels_table.curse = {}
+    channels_table.curse.capture = true
+  channels_table.immtalk = {}
+    channels_table.immtalk.capture = true
+  channels_table.advice = {}
+    channels_table.advice.capture = true
+  channels_table.inform = {}
+    channels_table.inform.capture = true
+  channels_table.lasertag = {}
+    channels_table.lasertag.capture = true
+  channels_table.rauction = {}
+    channels_table.rauction.capture = true
+  channels_table.answer = {}
+    channels_table.answer.capture = true
+  channels_table.auction = {}
+    channels_table.auction.capture = true
+  channels_table.question = {}
+    channels_table.question.capture = true
+  channels_table.wangrp = {}
+    channels_table.wangrp.capture = true
+  channels_table.yell = {}
+    channels_table.yell.capture = true
+  channels_table.sports = {}
+    channels_table.sports.capture = true
+  channels_table.spouse = {}
+    channels_table.spouse.capture = true
+  channels_table.ftalk = {}
+    channels_table.ftalk.capture = true
+  channels_table.gsocial = {}
+    channels_table.gsocial.capture = true
+  channels_table.ltalk = {}
+    channels_table.ltalk.capture = true
+  channels_table.trivia = {}
+    channels_table.trivia.capture = true
+  channels_table.say = {}
+    channels_table.say.capture = true
+  channels_table.pchat = {}
+    channels_table.pchat.capture = true
+  channels_table.gtell = {}
+    channels_table.gtell.capture = true
+  channels_table.gratz = {}
+    channels_table.gratz.capture = true
+  channels_table.gossip = {}
+    channels_table.gossip.capture = true
+  channels_table.pokerinfo = {}
+    channels_table.pokerinfo.capture = true
+  channels_table.helper = {}
+    channels_table.helper.capture = true
+  channels_table.tiertalk = {}
+    channels_table.tiertalk.capture = true
+  channels_table.claninfo = {}
+    channels_table.claninfo.capture = true
+  channels_table.racetalk = {}
+    channels_table.racetalk.capture = true
+  channels_table.dtell = {}
+    channels_table.dtell.capture = true
+  channels_table.mxit = {}
+    channels_table.mxit.capture = true
+  channels_table.tech = {}
+    channels_table.tech.capture = true
+  channels_table.ptell = {}
+    channels_table.ptell.capture = true
+  channels_table.mobsay = {}
+    channels_table.mobsay.capture = true
+  channels_table.quote = {}
+    channels_table.quote.capture = true</variable>
+  <variable name="date_format"></variable>
+  <variable name="echo">1</variable>
+  <variable name="enabled">true</variable>
+  <variable name="font_name">Noto Mono</variable>
+  <variable name="font_size">9</variable>
+  <variable name="global_quest_on">1</variable>
+  <variable name="info_on">1</variable>
+  <variable name="log_colour_codes">1</variable>
+  <variable name="log_timestamps">1</variable>
+  <variable name="log_to_file">1</variable>
+  <variable name="mw_b555825a4a5700c35fa80780_windowflags">2</variable>
+  <variable name="mw_b555825a4a5700c35fa80780_windowmode">0</variable>
+  <variable name="mw_b555825a4a5700c35fa80780_windowx">1326</variable>
+  <variable name="mw_b555825a4a5700c35fa80780_windowy">320</variable>
+  <variable name="pray_on">1</variable>
+  <variable name="remort_auction_on">0</variable>
+  <variable name="show_donations">1</variable>
+  <variable name="timestamp">0</variable>
+  <variable name="warfare_on">0</variable>
+</variables>
+</muclient>

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+
+<muclient>
+<plugin
+   name="combattracker"
+   author="Bast"
+   id="aaa66381c5408278ccda7100"
+   language="Lua"
+   purpose="do combat stats"
+   save_state="y"
+   date_written="2009-02-21 1:10:01"
+   requires="4.73"
+   version="6.1"
+   >
+
+<description trim="y">
+<![CDATA[
+
+]]>
+</description>
+
+
+</plugin>
+
+<!--  Get our standard constants -->
+
+<include name="constants.lua"/>
+
+<triggers>
+
+
+</triggers>
+
+
+<!--  Aliases  -->
+
+<aliases>
+
+</aliases>
+
+
+<!--  Script  -->
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require "var"
+require "serialize"
+require "commas"
+require "check"
+require "pluginhelper"
+require "verify"
+require "copytable"
+require "ldplugin"
+
+damagetable = {}
+
+function formatdamage(damaget)
+  local linelen = 72
+  local timestring = ''
+  if damaget['finishtime'] and damaget['starttime'] then
+    timestring = format_time(damaget['finishtime'] - damaget['starttime'], nil, var.infocolour)
+  end
+  TextToColourTell(var.infocolour .. string.rep('-', linelen) .. '@w')
+  ColourNote("", "", "")
+
+  tstring = var.statcolour .. damaget['name'] .. '@w'
+  if timestring ~= '' then
+    tstring = tstring .. ' ' .. var.infocolour .. ':@w ' .. var.statcolour .. timestring .. '@w'
+  end
+  tstring = tstring .. ' ' .. var.infocolour .. ':@w ' .. var.statcolour .. tostring(damaget['totalxp']) .. var.infocolour .. 'xp@w'
+  tstring = '  ' .. tstring .. '  '
+
+  tstringn = centercolourline(tstring, linelen, '', '-', var.infocolour)
+  TextToColourTell(tstringn)
+  ColourNote("", "", "")
+  TextToColourTell(var.infocolour .. string.rep('-', linelen) .. '@w')
+  ColourNote("", "", "")
+
+  local totald = 0
+  local totalm = 0
+  local totalh = 0
+  local bstring = var.statcolour .. "%-20s " .. var.infocolour .. ": " .. var.statcolour .. "%6s   %9s    (%3.0f%%) %7s  %8.0f"
+  hstring = var.infocolour .. "Dam Type             :    Hits      Damage   (  0%)   Misses    Average "
+  TextToColourTell(var.infocolour .. hstring)
+  ColourNote("", "", "")
+  TextToColourTell(var.infocolour .. string.rep('-', linelen) .. '@w')
+  ColourNote("", "", "")
+
+
+  for i,v in pairs(damaget['damage']) do
+    if i ~= 'enemy' and i ~= 'starttime' and i ~= 'finishtime' then
+      totald = totald + v['damage']
+    end
+  end
+
+  for i,v in pairs(damaget['damage']) do
+    if i ~= 'enemy' and i ~= 'starttime' and i ~= 'finishtime' then
+      totalm = totalm + v['misses']
+      totalh = totalh + v['hits']
+      local damt = i
+      if i == 'backstab' and v['incombat'] then
+        damt = i .. " (in)"
+      end
+      local avedamage = v['damage'] / v['hits']
+      if v['hits'] == 0 then
+        avedamage =  0
+      end
+
+      tper = (v['damage'] / totald) * 100
+
+      TextToColourTell(string.format(bstring, damt, v['hits'], v['damage'], tper, v['misses'], avedamage))
+      ColourNote("", "", "")
+    end
+  end
+  TextToColourTell(var.infocolour .. string.rep('-', linelen) .. '@w')
+  ColourNote("", "", "")
+  TextToColourTell(string.format(bstring, 'Total', totalh, totald, '100', totalm, totald / totalh))
+  ColourNote("", "", "")
+  TextToColourTell(var.infocolour .. string.rep('-', linelen) .. '@w')
+  ColourNote("", "", "")
+end
+
+function cmd_last(cmddict)
+  if #damagetable > 0 then
+    local index = #damagetable
+    if cmddict[1] and tonumber(cmddict[1]) then
+      index = index - tonumber(cmddict[1])
+    end
+    if index > 0 and index <= #damagetable then
+      formatdamage(damagetable[index])
+    else
+      ColourNote("red", "black", "No combat stats")
+    end
+  else
+    ColourNote("red", "black", "No combat stats")
+  end
+end
+
+function onmobdeath(stuff)
+  local tstuff = assert (loadstring ('return ' .. stuff or ""))()
+  table.insert(damagetable , tstuff)
+  cmd_last({})
+end
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+  phelper:OnPluginBroadcast(msg, id, name, text)
+
+end
+
+function OnPluginInstall ()
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin('broadcast_kills', 'aaa61c4570508448e19c7c14')
+
+  phelper:OnPluginEnable()
+
+  phelper:register_remote('aaa61c4570508448e19c7c14', "mobdeath", "onmobdeath")
+
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'btr')
+phelper:set_default('plugin_colour', 'orange')
+
+phelper:add_setting("statcolour", {help="the background colour for a cp mob", type="aardcolour", default="@W", sortlev=1, longname="color for stats"})
+phelper:add_setting("infocolour", {help="the text colour for a cp mob", type="aardcolour", default="@x178", sortlev=1, longname="color for info"})
+
+phelper:add_cmd('last', {func=cmd_last, help="show stats for last combat", sortgroup="Get information about damage"})
+
+phelper:enable()
+
+]]>
+</script>
+</muclient>
+

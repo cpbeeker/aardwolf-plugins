@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+
+<muclient>
+<plugin
+   name="miniwin_example"
+   author="Bast"
+   id="eee7adec415c1bbb534ef093"
+   language="Lua"
+   purpose="test miniwin functionality"
+   save_state="y"
+   date_written="2009-02-13 09:28:14"
+   requires="4.73"
+   version="6.1"
+   >
+</plugin>
+
+<!--  Get our standard constants -->
+
+<include name="constants.lua"/>
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require 'var'
+require 'pluginhelper'
+require "miniwin"
+require "tprint"
+require "commas"
+require "serialize"
+require "copytable"
+
+
+testwin = Miniwin:new{name="Example", resizable=true}
+testwin:set_default('maxtabs', 5)
+testwin2 = Miniwin:new{name="Example_2"}
+testwin2:set_default('header_height', 1)
+testwin2:set_default('use_tabwin', false)
+styles = {}
+header = {}
+-- Header Line, centered
+style = {}
+style.text = "Example Header"
+style.hjust = 'center'
+style.font_size = 9
+tstyle = {style}
+table.insert(header, tstyle)
+
+-- First Line
+style = {}
+style.text = " New Test Text p Line 1 @yNew Test Text Line 1@x @CNew Test Text Line 1@x New Test Text Line 1 "
+style.hjust = 'center'
+style.cellborder = true
+style.bordercolour = 'green'
+nstyle = {style}
+nstyle.lineborder = true
+nstyle.bordercolour = 'blue'
+nstyle[1].hint = serialize.save_simple(nstyle)
+nstyle[1].mouseover = nofunc
+table.insert(styles, nstyle)
+
+-- Second Line, several styles
+tstyle = {}
+
+-- Very Large Text
+style = {}
+style.text = " Large "
+style.font_name = 'Courier New'
+style.font_size = 30
+style.backcolour = "blue"
+style.leftborder = true
+style.rightborder = true
+style.topborder = true
+style.bottomborder = true
+--style.borderstyle = 1
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- Space
+style = {}
+style.text = " "
+style.font_name = 'Courier New'
+style.font_size = 8
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- Some text
+style = {}
+style.text = " Just Text "
+style.leftborder = true
+style.rightborder = true
+style.topborder = true
+style.bottomborder = true
+style.bordercolour = "yellow"
+style.borderwidth = 2
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- Justify Bottom Vertically with hyperlink
+style = {}
+style.text = " Bottom Vertically (Bold) "
+style.vjust = 'bottom'
+style.bold = true
+style.cellborder = true
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- Justify larger text, Arial Font, red text, green background
+style = {}
+style.text = " Center Vertically "
+style.font_name = 'Arial'
+style.font_size = 15
+style.backcolour = "green"
+style.textcolour = "red"
+style.vjust = 'center'
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- Fillall
+style = {}
+style.text = " FA "
+style.font_name = 'Arial'
+style.font_size = 15
+style.backcolour = "cyan"
+style.textcolour = "red"
+style.vjust = 'center'
+style.fillall = true
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- insert the second line
+table.insert(styles, tstyle)
+
+-- New Line
+style = {}
+style.text = "Just a New Line (Strikeout)"
+style.strikeout = true
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(styles, {style})
+
+-- New Line, Center Horizontally
+style = {}
+style.text = "Center Horizontally (Underline)"
+style.hjust = 'center'
+style.underline = true
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(styles, {style})
+
+-- New Line, Right Justify Horizontally
+style = {}
+style.text = "Right Horizontally (Italic)"
+style.italic = true
+style.hjust = 'right'
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+
+table.insert(styles, {style})
+
+local tstyle = {}
+-- Justify larger text, Arial Font, red text, green background
+style = {}
+style.image = {}
+style.image.name = 'test'
+style.image.width = 8
+style.image.height = 8
+style.image.mode = miniwin.image_stretch
+style.image.srcleft = nil
+style.image.srctop = nil
+style.image.srcright = nil
+style.image.srcbottom = nil
+style.backcolour = "green"
+style.textcolour = "red"
+style.vjust = 'center'
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- Fillall
+style = {}
+style.circleOp = {}
+style.circleOp.width = 8
+style.circleOp.height = 8
+style.circleOp.pencolour = 'blue' -- fore_colour
+style.circleOp.penstyle = miniwin.pen_null
+style.circleOp.penwidth = 0
+style.circleOp.brushcolour = 'red' -- back_colour
+style.circleOp.brushstyle = miniwin.brush_waves_vertical
+style.circleOp.extra1 = null
+style.circleOp.extra2 = null
+style.circleOp.extra3 = null
+style.circleOp.extra4 = null
+style.backcolour = "cyan"
+style.textcolour = "red"
+style.vjust = 'center'
+style.fillall = true
+style.hint = serialize.save_simple(style)
+style.mouseover = nofunc
+table.insert(tstyle, style)
+
+-- insert the second line
+--table.insert(styles, tstyle)
+
+styles2 = copytable.deep(styles)
+
+header2 = copytable.deep(header)
+header2[1][1].text = 'Header for tab 2'
+
+header3 = copytable.deep(header)
+header3[1][1].text = 'Header for tab 3'
+
+header4 = copytable.deep(header)
+header4[1][1].text = 'Header for tab 4'
+
+header5 = copytable.deep(header)
+header5[1][1].text = 'Header for tab 5'
+
+header6 = copytable.deep(header)
+header6[1][1].text = 'Header for tab 6'
+
+style = {popup_style(testwin2, "Show Miniwin Example 2", "blue")}
+style[1].hjust='center'
+style.cellborder = true
+style.bordercolour = 'blue'
+style.backcolour = 'white'
+
+table.insert(styles, style)
+
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+  phelper:OnPluginBroadcast(msg, id, name, text)
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+  --OnPluginDisable is automatically called by pluginhelper
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+
+
+  phelper:OnPluginEnable()
+  -- always create windows after OnPluginEnable due to default variable handling
+  testwin:enable()
+  testwin2:enable()
+
+  testwin:addtab('tab1', styles, header)
+  testwin:addtab('tab2', styles2, header2)
+  testwin:addtab('tab3', styles2, header3)
+  testwin:addtab('tab4', styles2, header4)
+  testwin:addtab('tab5', styles2, header5)
+
+  testwin2:addtab('tab1', styles2, header)
+
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'mnexam')
+phelper:set_default('plugin_colour', 'steelblue')
+
+phelper:add_pobject('win', testwin)
+phelper:add_pobject('win2', testwin2)
+
+phelper:enable()
+
+phelper:addaardhelps{"Map", "Automap", "Maprun", "Maptags", "Speedwalks", "Academy-Geography", "Runto"}
+
+phelper:addaardcmds{"map", "automap", "maprun", "tags", "runto"}
+
+]]>
+</script>
+</muclient>

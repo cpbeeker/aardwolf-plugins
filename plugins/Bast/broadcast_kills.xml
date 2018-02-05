@@ -1,0 +1,775 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+
+<muclient>
+<plugin
+   name="xBroadcast_Kills"
+   author="Bast"
+   id="aaa61c4570508448e19c7c14"
+   language="Lua"
+   purpose="broadcast when a mob is killed"
+   save_state="y"
+   date_written="2009-02-22 18:52:27"
+   requires="4.73"
+   version="6.1"
+   >
+
+<description trim="y">
+<![CDATA[
+[FOR PLUGIN AUTHORS ONLY]
+
+Broadcasts when a mob is killed
+Example
+  function OnPluginBroadcast (msg, id, name, text)
+    if id == "aaa61c4570508448e19c7c14" and msg == 1 then
+      local pvar = GetPluginVariable(  "aaa61c4570508448e19c7c14", "kill_info")
+
+      -- get the mobs
+      loadstring( pvar )()
+      kill = kill_info
+    end
+  end
+
+xBroadcast_Kills : Broadcast 1
+ kill_info = {}
+  kill_info.wielded_weapon = ""
+  kill_info.totalxp = 90
+  kill_info.second_weapon = ""
+  kill_info.bcasted = false
+  kill_info.blessingxp = 0
+  kill_info.tp = 0
+  kill_info.deathblow = 0
+  kill_info.assassinate = 0
+  kill_info.xp = 90
+  kill_info.time = 1340386052
+  kill_info.slit = 0
+  kill_info.disintegrate = 0
+  kill_info.level = 126
+  kill_info.banishment = 0
+  kill_info.gold = "3869"
+  kill_info.vorpal = 0
+  kill_info.room_id = 11390
+  kill_info.name = "Grectza"
+  kill_info.bonusxp = 0
+
+]]>
+</description>
+</plugin>
+
+
+<!--  Get our standard constants -->
+<!-- Dodges
+A beaver dodges your attack.
+A beaver parries your attack.
+Courtnay d'Assini counter-strikes your attack!
+A giant lizard blinks out of existence avoiding your attack.
+Ayla's holy rift protects a human prisoner from your attack.
+A large bat fiddles with time and your attack is just a few seconds slow.
+A ghoulish creature blends in perfectly causing you to hit nothing but air.
+The solemn knight blocks your attack with his shield.
+The mine foreman avoids your attack, almost too easily.
+
+You blink out of existence and avoid a small crow's attack.
+You dodge a beaver's attack.
+You misdirect a beaver's attack.
+You create a time shift and calmly step away from a beaver's attack.
+You get lucky and manage to escape a giant lizard's attack.
+Ayla's holy rift protects you from A mangled person's attack.
+You sense divine intervention as a Giant Shark's attack narrowly misses you.
+You parry ice devil's attack.
+You blend perfectly with your surroundings and avoid Valkur's lab guard's attack.
+ -->
+<include name="constants.lua"/>
+
+<triggers>
+  <trigger
+   enabled="y"
+   match="^You (don't )?receive (\d+(?:\+\d+)*) experience points?\.$"
+   regexp="y"
+   name="mobxp"
+   script="mobxp"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You (don't )?receive (\d+) bonus experience points? from your daily blessing\.$"
+   name="blessingxp"
+   script="bonusxp"
+   regexp="y"
+   sequence="99"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You (don't )?receive (\d+) bonus experience points *"
+   name="bonusxp"
+   script="bonusxp"
+   regexp="y"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You (don't )?receive (\d+) 'rare kill' experience bonus."
+   name="rarexp"
+   script="bonusxp"
+   sequence="100"
+   regexp="y"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^That was a pointless no experience kill!$"
+   regexp="y"
+   name="mobxppointless"
+   script="mobxp"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You switch targets and direct your attacks at (.*).\.$"
+   regexp="y"
+   name="mobswitch"
+   script="mobswitch"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You flee from combat!$"
+   regexp="y"
+   name="mobnoneflee"
+   script="mobnone"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You retreat from the combat!$"
+   regexp="y"
+   name="mobnoneretreat"
+   script="mobnone"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^You get (.+) gold coins (.+) corpse of (.+)\.$"
+   name="mobgold"
+   script="mobgold"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^You get (.+) corpse of (.+)\.$"
+
+   name="mobname"
+   script="mobname"
+   sequence="101"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^Ayla gives you (.+) for the .+ corpse of (.+).$"
+   name="saccorpse"
+   script="mobname"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^(\w+) splits? (\d+) gold coins?. Your share is (\d+) gold\.$"
+   name="splitgold"
+   script="mobgold"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^You killed a Trivia bonus mob!! Trivia point added\.$"
+   name="trivmob"
+   script="trivmob"
+   sequence="100"
+  >
+  </trigger>
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^You killed a Triv bonus mob!! Triv point added\.$"
+   name="trivmob2"
+   script="trivmob"
+   sequence="100"
+  >
+  </trigger>
+  <trigger
+   enabled="y"
+   regexp="y"
+   match="^You killed a Trivia Point bonus mob!! Trivia point added\.$"
+   name="trivmob3"
+   script="trivmob"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   custom_colour="17"
+   enabled="y"
+   regexp="y"
+   match="^Deep magic stirs within your weapon. It seems to have a life of its own.$"
+   name="vorpmob"
+   script="vorpmob"
+   other_back_colour="red"
+   other_text_colour="black"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="n"
+   match="^$"
+   regexp="y"
+   sequence="100"
+   script="broadcast_kill"
+   name="deadtrig"
+   group="deadtrig"
+  >
+  </trigger>
+
+  <trigger
+   custom_colour="17"
+   regexp="y"
+   enabled="y"
+   group="counter"
+   match="^You assassinate (.*) with cold efficiency.$"
+   send_to="12"
+   sequence="990"
+   other_back_colour="red"
+   other_text_colour="black"
+   script="assassinatemob"
+   name="assassinate"
+  >
+  </trigger>
+
+  <trigger
+    custom_colour="17"
+    enabled="y"
+    regexp="y"
+    group="counter"
+    make_bold="y"
+    match="^Your death blow CLEAVES (.*) in two!$"
+    send_to="12"
+    sequence="990"
+    other_back_colour="red"
+    other_text_colour="black"
+    script="deathblowmob"
+    name="deathblow"
+    >
+  </trigger>
+
+  <trigger
+    custom_colour="17"
+    enabled="y"
+    regexp="y"
+    group="counter"
+    make_bold="y"
+    match="^You sneak behind (.*) and slit (.*) throat.$"
+    send_to="12"
+    sequence="990"
+    other_back_colour="limegreen"
+    other_text_colour="black"
+    script="slitmob"
+    name="slit"
+    >
+  </trigger>
+
+  <trigger
+    custom_colour="17"
+    enabled="y"
+    regexp="y"
+    group="counter"
+    make_bold="y"
+    match="^You have disintegrated (.*)!$"
+    send_to="12"
+    sequence="990"
+    other_back_colour="red"
+    other_text_colour="black"
+    script="disintegratemob"
+    name="disintegrate"
+    >
+  </trigger>
+
+  <trigger
+    custom_colour="17"
+    enabled="y"
+    regexp="y"
+    group="counter"
+    make_bold="y"
+    match="^You look at (.*) very strangely.$"
+    send_to="12"
+    sequence="990"
+    other_back_colour="blue"
+    other_text_colour="green"
+    script="banishmob"
+    name="banish"
+    >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^\[(.*)\] Your (.*) \[(.*)\]$"
+   name="damage"
+   script="damage"
+   sequence="100"
+   regexp="y"
+   omit_from_output="n"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^Your (.*) \[(.*)\]$"
+   name="damage2"
+   script="damage"
+   sequence="100"
+   regexp="y"
+   omit_from_output="n"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^You spin around (.*), catching (.*) off guard, and execute a vicious double backstab.$"
+   name="incombat"
+   script="incombat"
+   regexp="y"
+   sequence="100"
+  >
+  </trigger>
+
+  <trigger
+   enabled="y"
+   match="^(.*) is unaffected by your (.*)!$"
+   name="immunity"
+   script="immunity"
+   regexp="y"
+   sequence="100"
+  >
+  </trigger>
+</triggers>
+
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require "var"
+require "serialize"
+require "commas"
+require "pluginhelper"
+require "verify"
+require "ldplugin"
+require "eqdb"
+require "colours"
+require "aardutils"
+
+db = EQdb:new{}
+
+mobdamcache = {}
+
+function damagedef()
+  local tdamage = {}
+  tdamage['hits'] = 0
+  tdamage['misses'] = 0
+  tdamage['damage'] = 0
+  return tdamage
+end
+
+function reset_kill()
+  local room_id = kill_info.room_id
+  kill_info = {}
+  kill_info.tp = 0
+  kill_info.vorpal = 0
+  kill_info.assassinate = 0
+  kill_info.deathblow = 0
+  kill_info.slit = 0
+  kill_info.disintegrate = 0
+  kill_info.banishment = 0
+  kill_info.xp = 0
+  kill_info.rarexp = 0
+  kill_info.bonusxp = 0
+  kill_info.blessingxp = 0
+  kill_info.totalxp = 0
+  kill_info.noexp = 0
+  kill_info.gold = 0
+  kill_info.tp = 0
+  kill_info.name = ""
+  kill_info.wielded_weapon = ''
+  kill_info.second_weapon = ''
+  kill_info.bcasted = true
+  kill_info.room_id = room_id
+  kill_info.damage = {}
+  kill_info.immunities = {}
+end
+
+kill_info = {}
+reset_kill()
+var.cur_weapon = ''
+lastroom = -1
+
+function reset_damage()
+  kill_info['starttime'] = nil
+  kill_info['finishtime'] = nil
+  kill_info['damage'] = {}
+  kill_info['immunities'] = {}
+end
+
+function incombat(name, line, wildcards)
+  if not kill_info.damage['backstab'] then
+    kill_info.damage['backstab'] = damagedef()
+  end
+  kill_info.damage['backstab']['incombat'] = true
+end
+
+function immunity(name, line, wildcards)
+  local immunity = wildcards[2]
+  if not kill_info.immunities[immunity] and kill_info.name == wildcards[1] then
+    --print('setting immunity', immunity)
+    kill_info.immunities[immunity] = true
+  end
+end
+
+function addtodamage(tdam, damtable)
+  local damtype = tdam['damtype']
+  if not damtype then
+    damtype = 'Unknown'
+  end
+  if not damtable[damtype] then
+    damtable[damtype] = damagedef()
+  end
+
+  if tdam['damverb'] == 'misses' then
+    damtable[damtype]['misses'] = damtable[damtype]['misses'] + tdam['hits']
+  else
+    damtable[damtype]['hits'] = damtable[damtype]['hits'] + tdam['hits']
+    damtable[damtype]['damage'] = damtable[damtype]['damage'] + tdam['damage']
+  end
+  return damtable
+end
+
+function damage(name, line, wildcards)
+
+  local tdam = parsedamageline(line)
+  local damtype = tdam['damtype']
+
+  if not kill_info['starttime'] then
+    kill_info['starttime'] = GetInfo(304)
+  end
+  if tdam['enemy'] and kill_info.name ~= '' and tdam['enemy'] ~= kill_info.name then
+    if not mobdamcache[tdam['enemy']] then
+      mobdamcache[tdam['enemy']] = {}
+    end
+    addtodamage(tdam, mobdamcache[tdam['enemy']])
+    return
+  end
+
+  if mobdamcache[tdam['enemy']] then
+      kill_info.damage = mobdamcache[tdam['enemy']]
+      mobdamcache[tdam['enemy']] = nil
+  end
+  addtodamage(tdam, kill_info.damage)
+end
+
+function mobnone(name, line, wildcards)
+  --print('setting name to none')
+  kill_info.name = ""
+  reset_damage()
+end
+
+function mobname(name, line, wildcards)
+  if kill_info.name == "" then
+    kill_info.name = strip_colours(wildcards[2])
+  end
+  if name == 'saccorpse' then
+    broadcast_kill()
+  end
+end
+
+function bonusxp(name, line, wildcards)
+  if name == 'bonusxp' then
+    kill_info.bonusxp = tonumber(wildcards[2])
+  elseif name == 'blessingxp' then
+    kill_info.blessingxp = tonumber(wildcards[2])
+  elseif name == 'rarexp' then
+    kill_info.rarexp = tonumber(wildcards[2])
+  end
+end
+
+function mobxp( name, line, wildcards )
+  if name == 'mobxppointless' then
+    wildcards[2] = '0'
+  end
+  if name == 'mobxp' or name == "mobxppointless" then
+    kill_info.bonusxp = 0
+    if string.find(wildcards[2], '+') then
+      tlist = utils.split(wildcards[2], '+')
+      local newxp = 0
+      for i,v in ipairs(tlist) do
+        newxp = newxp + tonumber(v)
+      end
+      kill_info.xp = newxp
+    else
+      kill_info.xp = tonumber(wildcards[2])
+    end
+    kill_info.time = GetInfo(304)
+    kill_info.bcasted = false
+    if string.find(line, "don't") then
+      kill_info.noexp = 1
+    end
+    --DoAfterSpecial(.2, 'broadcast_kill()', 12)
+    EnableTrigger ("deadtrig", true)
+    -- enable deadtrig
+  end
+end
+
+function vorpmob( name, line, wildcards)
+  kill_info.vorpal = 1
+  kill_info.wielded_weapon = phelper.weaponsn
+  kill_info.second_weapon = phelper.secondsn
+end
+
+function mobswitch( name, line, wildcards)
+  kill_info.name = strip_colours(wildcards[1])
+  reset_damage()
+end
+
+function assassinatemob( name, line, wildcards)
+  kill_info.name = strip_colours(wildcards[1])
+  kill_info.assassinate = 1
+end
+
+function slitmob( name, line, wildcards)
+  kill_info.name = strip_colours(wildcards[1])
+  kill_info.slit = 1
+  kill_info.bcasted = false
+  kill_info.time = GetInfo(304)
+  broadcast_kill()
+end
+
+function disintegratemob( name, line, wildcards)
+  kill_info.name = strip_colours(wildcards[1])
+  kill_info.disintegrate = 1
+  kill_info.bcasted = false
+  kill_info.time = GetInfo(304)
+  broadcast_kill()
+end
+
+function banishmob( name, line, wildcards)
+  kill_info.name = strip_colours(wildcards[1])
+  kill_info.banishment = 1
+  kill_info.bcasted = false
+  kill_info.time = GetInfo(304)
+  broadcast_kill()
+end
+
+function deathblowmob( name, line, wildcards)
+  kill_info.name = strip_colours(wildcards[1])
+  kill_info.deathblow = 1
+end
+
+function mobgold( name, line, wildcards )
+  if name == 'mobgold' then
+    kill_info.gold = wildcards[1]
+    if kill_info.name == "" then
+      kill_info.name = strip_colours(wildcards[3])
+    end
+  elseif name == 'splitgold' then
+    kill_info.gold = wildcards[2]
+  end
+  kill_info.gold = string.gsub(kill_info.gold, ",", "")
+end
+
+function broadcast_kill()
+  kill_info['finishtime'] = GetInfo(304)
+  if kill_info.bcasted == false then
+    if kill_info.name == nil then
+      kill_info.name = 'did not get the mob name'
+    end
+    kill_info.totalxp = tonumber(kill_info.xp or 0) + tonumber(kill_info.rarexp or 0) + tonumber(kill_info.bonusxp or 0) + tonumber(kill_info.blessingxp or 0)
+    var.kill_info = serialize.save( "kill_info", kill_info )
+    phelper:broadcast(1, var.kill_info)
+    --disable deadtrig
+  end
+  EnableTrigger ("deadtrig", false)
+  phelper:processevent('mobdeath', kill_info)
+  reset_kill()
+end
+
+function trivmob( name, line, wildcards )
+  kill_info.tp = 1
+end
+
+function onwearlocchange(stuff)
+  local stuff = assert (loadstring ('return ' .. stuff or ""))()
+  --tprint(stuff)
+  local wearloc = stuff.wearloc
+  local action = stuff.action
+  local sitem = stuff.item
+  if wearloc ~= 'All' then
+    local item = db:getitem(stuff.item.serial)
+    --print('onwearlocchange')
+    if tonumber(action) == 2 then
+      if sitem.placestr == 'wielded' then
+        phelper:set('weaponsn', item.serial, {silent=true})
+      elseif sitem.placestr == 'second' then
+        phelper:set('secondsn', item.serial, {silent=true})
+      end
+    elseif tonumber(action) == 1 then
+      if sitem.placestr == 'wielded' then
+        phelper:set('weaponsn', '', {silent=true})
+      elseif sitem.placestr == 'second' then
+        phelper:set('secondsn', '', {silent=true})
+      end
+    end
+  elseif wearloc == 'All' then
+    -- get wielded and second from db
+    local witem = db:getitembywearslot(24)
+    local sitem = db:getitembywearslot(25)
+    if witem then
+      phelper:set('weaponsn', witem.serial, {silent=true})
+    end
+    if sitem then
+      phelper:set('secondsn', sitem.serial, {silent=true})
+    end
+  end
+end
+
+instatriggers = {"assassinate", "deathblow", "slit", "disintegrate", "banish", "vorpmob"}
+
+function oninstacolourchange(stuff)
+  for i,v in ipairs(instatriggers) do
+    SetTriggerOption(v, "other_back_colour", phelper.instaback)
+    SetTriggerOption(v, "other_text_colour", phelper.instatext)
+  end
+end
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+
+  if id == '3e7dedbe37e44942dd46d264' then
+    if text:find("char.status") then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval", "char")
+      tt = assert (loadstring ('return ' .. gmcparg or ""))()
+
+      if tt['status'] then
+        kill_info.level = tonumber(tt.status.level)
+        if tt.status.enemy ~= "" and kill_info.name == "" then
+          kill_info.name = strip_colours(tt.status.enemy)
+          reset_damage()
+        end
+      end
+    elseif text:find('room.info') then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","room.info")
+      tt = assert (loadstring ('return ' .. gmcparg or ""))()
+
+      kill_info.room_id = tonumber(tt.num)
+
+      if tonumber(tt.num) ~= lastroom and kill_info.name ~= "" then
+        lastroom = tonumber(tt.num)
+        kill_info.name = ""
+        --print('resetting name to none')
+      end
+
+    end
+  end
+
+  phelper:OnPluginBroadcast(msg, id, name, text)
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+  ldplugin ('eqdb', 'aaa56faed92ffc6146964abc')
+
+  phelper:register_remote("aaa56faed92ffc6146964abc", "wearlocchange", "onwearlocchange")
+  phelper:registerevent('option_instaback', phelper, oninstacolourchange)
+  phelper:registerevent('option_instatext', phelper, oninstacolourchange)
+
+  phelper:OnPluginEnable()
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'bkill')
+phelper:set_default('plugin_colour', 'orange')
+
+phelper:add_setting('weaponsn', {help="the sn of the weapon that is currently wielded", type="string", default="", readonly=true})
+phelper:add_setting('secondsn', {help="the sn of the weapon that is currently seconded", type="string", default="", readonly=true})
+phelper:add_setting('instaback', {help="the background colour for an instakill spell/skill", type="colour", default="red"})
+phelper:add_setting('instatext', {help="the text colour for an instakill spell/skill", type="colour", default="black"})
+
+phelper:enable()
+
+]]>
+</script>
+</muclient>

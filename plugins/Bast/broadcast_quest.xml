@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+<muclient>
+<plugin
+   name="xBroadcast_Quest"
+   author="Bast"
+   id="aaa8a9eda20fa11787c6b438"
+   language="Lua"
+   purpose="Broadcast whenever anything happens with a quest"
+   save_state="y"
+   date_written="2009-02-20 12:31:01"
+   requires="4.73"
+   version="6.1"
+   >
+
+<description trim="y">
+<![CDATA[
+[FOR PLUGIN AUTHORS ONLY]
+
+Broadcasts when anything happens in a quest
+Broadcasts
+   1 - can now quest
+   2 - Mob info : get var.quest_info and loadstring it
+        see below
+   3 - time left to finish quest
+        timer = {secs = num, text = 'time in text format' }
+   4 - quest mob killed
+   6 - rewards and time : get var.quest_info and loadstring it, values will be 0 if not applicable
+        see below
+   7 - time left until next quest
+        timer = {secs = num, text = 'time in text format' }
+   8 - failed the quest
+
+Example:
+  function OnPluginBroadcast (msg, id, name, text)
+    if id == "aaa8a9eda20fa11787c6b438" and msg == 2 then
+      local pvar = GetPluginVariable(  "aaa8a9eda20fa11787c6b438" , "quest_info")
+
+      --get the mob info
+      loadstring( pvar )()
+      quest_stuff = quest_info
+    end
+  end
+
+Broadcast 2
+ quest_info = {}
+  quest_info.starttime = 1340386244
+  quest_info.mobname = "a mountain lion"
+  quest_info.finishtime = -1
+  quest_info.lucky = 0
+  quest_info.tier = 0
+  quest_info.mccp = 0
+  quest_info.pracs = 0
+  quest_info.tp = 0
+  quest_info.totqp = 0
+  quest_info.double = 0
+  quest_info.failed = 0
+  quest_info.daily = 0
+  quest_info.gold = 0
+  quest_info.mobarea = "The Broken Halls of Horath"
+  quest_info.trains = 0
+  quest_info.qp = 0
+  quest_info.mobroom = "Nearing the Palace"
+
+xBroadcast_Quest : Broadcast 3
+timer = {}
+  timer.text = "44 m"
+  timer.secs = 2640
+
+Broadcast 6
+ quest_info = {}
+  quest_info.starttime = 1340386244
+  quest_info.mobname = "a mountain lion"
+  quest_info.finishtime = 1340386313
+  quest_info.lucky = "0"
+  quest_info.tier = "1"
+  quest_info.mccp = "2"
+  quest_info.pracs = "0"
+  quest_info.tp = "0"
+  quest_info.totqp = 19
+  quest_info.double = 0
+  quest_info.failed = 0
+  quest_info.daily = 0
+  quest_info.gold = "4294"
+  quest_info.mobarea = "The Broken Halls of Horath"
+  quest_info.trains = "0"
+  quest_info.qp = "16"
+  quest_info.mobroom = "Nearing the Palace"
+
+xBroadcast_Quest : Broadcast 7
+timer = {}
+  timer.text = "28 m"
+  timer.secs = 1707
+
+]]>
+</description>
+
+</plugin>
+
+
+<!--  Triggers  -->
+
+<triggers>
+
+</triggers>
+
+<!--  Timers  -->
+
+
+<timers>
+  <timer
+      script="update_timer"
+      enabled="y"
+      second="30.00"
+      name="questtimer"
+      >
+  </timer>
+</timers>
+
+<!--  Script  -->
+
+
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require "var"
+require "serialize"
+require "commas"
+require 'pluginhelper'
+require "verify"
+require "ldplugin"
+
+onquest = false
+timer  ={}
+
+function blankquest ()
+  local quest_info = {}
+  quest_info.finishtime = -1
+  quest_info.starttime = -1
+  quest_info.mobname = ''
+  quest_info.mobarea = ''
+  quest_info.mobroom = ''
+  quest_info.totqp = 0
+  quest_info.daily = 0
+  quest_info.double = 0
+  quest_info.qp = 0
+  quest_info.gold = 0
+  quest_info.tierqp = 0
+  quest_info.mccp = 0
+  quest_info.lucky = 0
+  quest_info.tp = 0
+  quest_info.trains = 0
+  quest_info.pracs = 0
+  quest_info.failed = 0
+  quest_info.hardcore = 0
+  quest_info.opk = 0
+  return quest_info
+end
+
+function quest_available (name, line, wildcards)
+  check(EnableTimer("questtimer", false))
+  phelper:broadcast(1)
+end -- quest_available
+
+function quest_time_to_go (name, line, wildcards)
+  local mins = tonumber (wildcards [1])
+  if mins then
+    when_required = os.time () + mins * 60
+  end -- if
+  update_timer()
+end -- quest_time_to_go
+
+function questor_time (minutes)
+
+  when_required = os.time () + tonumber (minutes) * 60
+
+  onquest = true
+  update_timer()
+
+end -- questor_end
+
+function update_timer()
+  -- how long to go
+  if when_required == nil then
+    return
+  end
+  check(EnableTimer("questtimer", true))
+  local time_to_go = when_required - os.time ()
+  timer['secs'] = time_to_go
+  timer['text'] = convert_time(time_to_go)
+  var.timer = serialize.save( "timer", timer )
+  if onquest then
+    phelper:broadcast(3, var.timer)
+  else
+    phelper:broadcast(7, var.timer)
+  end
+end
+
+function formatquest()
+  if not next(phelper.tquest) then
+    return "None"
+  else
+    local ttable = {}
+    for i,v in pairs(phelper.tquest) do
+      tstring = tostring(i) .. " : " .. tostring(v)
+      table.insert(ttable, tstring)
+    end
+    return table.concat (ttable, "\n")
+  end
+end
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+  phelper:OnPluginBroadcast(msg, id, name, text)
+  if id == '3e7dedbe37e44942dd46d264' then
+    if text:find("comm.quest") then
+      res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","comm.quest")
+      stuff = assert (loadstring ('return ' .. gmcparg or ""))()
+
+      if stuff.action == 'ready' then
+        phelper:broadcast(1)
+        check(EnableTimer("questtimer", false))
+      elseif stuff.action == 'start' then
+        phelper.tquest = blankquest()
+        phelper.tquest['starttime'] = GetInfo(304)
+        phelper.tquest['mobname'] = stuff.targ
+        phelper.tquest['mobroom'] = stuff.room
+        phelper.tquest['mobarea'] = stuff.area
+        var.quest_info = serialize.save( "quest_info", phelper.tquest )
+        phelper:broadcast(2, var.quest_info)
+        questor_time (tonumber(stuff.timer))
+        SaveState()
+      elseif stuff.action == 'killed' then
+        check(EnableTimer("questtimer", false))
+        phelper:broadcast(4)
+      elseif stuff.action == 'comp' then
+        phelper.tquest['qp'] = stuff.qp
+        phelper.tquest['gold'] = stuff.gold
+        phelper.tquest['tierqp'] = stuff.tierqp
+        phelper.tquest['lucky'] = stuff.lucky
+        phelper.tquest['mccp'] = stuff.mccp
+        phelper.tquest['tp'] = stuff.tp
+        phelper.tquest['trains'] = stuff.trains
+        phelper.tquest['pracs'] = stuff.pracs
+        phelper.tquest['finishtime'] = GetInfo(304)
+        phelper.tquest['double'] = 0
+        phelper.tquest['daily'] = 0
+        phelper.tquest['hardcore'] = stuff.hardcore
+        phelper.tquest['opk'] = stuff.opk
+        phelper.tquest['totqp'] = tonumber(stuff.totqp)
+        if tonumber(stuff.double) == 1 then
+          phelper.tquest['double'] = 1
+        end
+        if tonumber(stuff.daily) == 1 then
+          phelper.tquest['daily'] = 1
+        end
+	var.quest_info = serialize.save( "quest_info", phelper.tquest )
+        phelper:broadcast(6, var.quest_info)
+        when_required = os.time () + (30 * 60)  -- 30 mins to go
+        onquest = false
+        update_timer()
+        SaveState()
+      elseif stuff.action == 'fail' or stuff.action == 'timeout' then
+        when_required = os.time () + (stuff.wait * 60)  -- 15 mins to go
+        onquest = false
+        update_timer()
+        phelper.tquest.failed = 1
+        phelper.tquest['finishtime'] = GetInfo(304)
+        var.quest_info = serialize.save( "quest_info", phelper.tquest )
+        phelper:broadcast(8, var.quest_info)
+        SaveState()
+      elseif stuff.action == 'status' then
+        if stuff.status == 'ready' then
+          quest_available()
+        elseif stuff.wait then
+          when_required = os.time() + (stuff.wait * 60)
+          update_timer()
+        elseif stuff.target == 'killed' then
+          phelper:broadcast(4)
+        elseif stuff.target == 'missing' then
+
+        else
+          onquest = true
+          phelper.tquest['starttime'] = GetInfo(304)
+          phelper.tquest['mobname'] = stuff.targ
+          phelper.tquest['mobroom'] = stuff.room
+          phelper.tquest['mobarea'] = stuff.area
+          var.quest_info = serialize.save( "quest_info", phelper.tquest )
+          phelper:broadcast(2, var.quest_info)
+          questor_time (tonumber(stuff.timer))
+          SaveState()
+        end
+      elseif stuff.action == 'reset' then
+        when_required = os.time() + (stuff.timer * 60)
+        update_timer()
+      end
+    end
+  end
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose ()
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin ("aard_GMCP_handler", "3e7dedbe37e44942dd46d264")
+
+  phelper:OnPluginEnable()
+
+  if IsConnected() then
+    CallPlugin("3e7dedbe37e44942dd46d264","Send_GMCP_Packet","request quest")
+  end
+
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- function OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'bqu')
+phelper:set_default('plugin_colour', 'orange')
+
+phelper:add_setting('tquest', {type="table", help="the current/last quest", default=serialize.save_simple(blankquest()), sortlev=35, istable=true, formatfunc=formatquest, readonly=true})
+
+phelper:enable()
+
+]]>
+</script>
+</muclient>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- MuClient version 4.98 -->
+<!-- Written by Nick Gammon -->
+<!-- Home Page: http://www.mushclient.com/ -->
+
+<!-- Plugin state saved. Plugin: "xBroadcast_Idle". World: "scanAardwolf". -->
+
+<muclient>
+
+<!-- variables -->
+
+<variables
+   muclient_version="4.98"
+   world_file_version="15"
+  >
+  <variable name="bg_colourxBroadcast_Idle_help">0</variable>
+  <variable name="border_colourxBroadcast_Idle_help">16777215</variable>
+  <variable name="button_bg_highlight_colourxBroadcast_Idle_help">7392185</variable>
+  <variable name="button_border_darkxBroadcast_Idle_help">2039583</variable>
+  <variable name="button_border_lightxBroadcast_Idle_help">4210752</variable>
+  <variable name="button_text_colourxBroadcast_Idle_help">16777215</variable>
+  <variable name="button_text_highlight_colourxBroadcast_Idle_help">0</variable>
+  <variable name="cmd">bidle</variable>
+  <variable name="cmdphelp">bidle</variable>
+  <variable name="disabledxBroadcast_Idle_help">false</variable>
+  <variable name="enabled">true</variable>
+  <variable name="firstshownxBroadcast_Idle_help">true</variable>
+  <variable name="font_warnxBroadcast_Idle_help">false</variable>
+  <variable name="footer_bg_colourxBroadcast_Idle_help">6908265</variable>
+  <variable name="footer_text_colourxBroadcast_Idle_help">65280</variable>
+  <variable name="header_bg_colourxBroadcast_Idle_help">6908265</variable>
+  <variable name="header_heightxBroadcast_Idle_help">1</variable>
+  <variable name="header_text_colourxBroadcast_Idle_help">65280</variable>
+  <variable name="height_paddingxBroadcast_Idle_help">2</variable>
+  <variable name="heightxBroadcast_Idle_help">0</variable>
+  <variable name="hyperlink_colourxBroadcast_Idle_help">65535</variable>
+  <variable name="ignorebsetting">false</variable>
+  <variable name="ignorebsettingphelp">false</variable>
+  <variable name="ignorebsettingxBroadcast_Idle_help">false</variable>
+  <variable name="layerxBroadcast_Idle_help">999</variable>
+  <variable name="lockwindowxBroadcast_Idle_help">false</variable>
+  <variable name="maxlinesxBroadcast_Idle_help">30</variable>
+  <variable name="maxtabsxBroadcast_Idle_help">1</variable>
+  <variable name="plugin_colour">42495</variable>
+  <variable name="plugin_colourphelp">42495</variable>
+  <variable name="shade_with_headerxBroadcast_Idle_help">false</variable>
+  <variable name="shadedxBroadcast_Idle_help">false</variable>
+  <variable name="showevents">false</variable>
+  <variable name="showeventsphelp">false</variable>
+  <variable name="showeventsxBroadcast_Idle_help">false</variable>
+  <variable name="shownxBroadcast_Idle_help">false</variable>
+  <variable name="showresizexBroadcast_Idle_help">true</variable>
+  <variable name="showtablinexBroadcast_Idle_help">true</variable>
+  <variable name="tab_bg_colourxBroadcast_Idle_help">14474460</variable>
+  <variable name="tab_border_colourxBroadcast_Idle_help">14474460</variable>
+  <variable name="tab_text_colourxBroadcast_Idle_help">855309</variable>
+  <variable name="tdebug">false</variable>
+  <variable name="tdebugphelp">false</variable>
+  <variable name="tdebugxBroadcast_Idle_help">false</variable>
+  <variable name="text_colourxBroadcast_Idle_help">14474460</variable>
+  <variable name="textfontxBroadcast_Idle_help">{
+  name = "liberation sans",
+  size = 8,
+  }</variable>
+  <variable name="time">false</variable>
+  <variable name="timephelp">false</variable>
+  <variable name="title_gradient1xBroadcast_Idle_help">1381653</variable>
+  <variable name="title_gradient2xBroadcast_Idle_help">3355443</variable>
+  <variable name="titlebarxBroadcast_Idle_help">true</variable>
+  <variable name="use_tabwinxBroadcast_Idle_help">false</variable>
+  <variable name="width_paddingxBroadcast_Idle_help">6</variable>
+  <variable name="widthxBroadcast_Idle_help">0</variable>
+  <variable name="window_border_colourxBroadcast_Idle_help">16777215</variable>
+  <variable name="window_border_widthxBroadcast_Idle_help">2</variable>
+  <variable name="windowposxBroadcast_Idle_help">12</variable>
+  <variable name="xxBroadcast_Idle_help">-1</variable>
+  <variable name="yxBroadcast_Idle_help">-1</variable>
+</variables>
+</muclient>

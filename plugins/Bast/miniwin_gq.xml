@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE muclient>
+<!-- $Id$ -->
+<muclient>
+<plugin
+   name="miniwin_gq"
+   author="Bast"
+   id="eee984fd3c00a9e974cd5eb2"
+   language="Lua"
+   purpose="put gquest targets in  a minwin"
+   save_state="y"
+   date_written="2009-02-22 21:20:25"
+   requires="4.73"
+   version="6.1"
+   >
+<description trim="y">
+Redirects the gq to the miniwindow.
+</description>
+
+</plugin>
+
+
+<!--  Get our standard constants -->
+
+<include name="constants.lua"/>
+
+<!--  Script  -->
+<script>
+<![CDATA[
+internalrevision = "$Rev$"
+
+dofile (GetPluginInfo (GetPluginID (), 20) .. "luapath.lua")
+
+require 'var'
+require "commas"
+require 'miniwin'
+require 'tprint'
+require 'pluginhelper'
+require 'ldplugin'
+
+gqwin = Miniwin:new{name="GQ"}
+gqwin:set_default('windowpos', 7)
+gqwin:set_default('header_height', 0)
+--gqwin:disable()
+
+gqmobs = {}
+mobcount = 0
+ingq = false
+
+function build_gq ()
+
+  local texttable = {}
+  local style = {}
+  local header = {}
+  -- do nothing if no gquest
+  if #gqmobs == 0 then
+    return
+  end -- if
+
+
+  -- list of mobs
+  mobcount = 0
+  for i, v in ipairs (gqmobs) do
+    mobcount = mobcount + v.num
+    style = {}
+    style.text = string.format("%3s: %-30s %s", v.num, v.name, " (" .. v.location .. ")")
+    style.len = #style.text
+    style.style = 0
+    table.insert (texttable, {style})
+  end -- for
+
+  -- heading
+  style = {}
+  style.text = string.format("GQuest mobs left: %s", mobcount)
+  style.len = #style.text
+  style.style = 0
+  table.insert (header, {style})
+
+  gq_text = texttable
+  gqwin.header_height = 1
+  show_gq(texttable, header)
+
+  style = {}
+  style.text = " GQ: " .. mobcount
+  gqwin:tabbroadcast(true, {style})
+
+end -- build_gq
+
+function show_gq (text, header)
+  -- do nothing if no gq
+  if #text == 0 then
+    return
+  end -- if
+
+  gqwin:enable()
+  gqwin:addtab('default', text, header, true)
+  --gqwin:changetotab('default')
+  gqwin:show(true)
+end -- show_quest_text
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+function OnPluginBroadcast (msg, id, name, text)
+  if id == "aaa77f81c5408278ccda7100" then
+    if msg == 7 then
+      -- gquest available
+      if not ingq then
+        local style = {}
+        style.text = " GQ "
+        style.textcolour = "red"
+        gqwin:tabbroadcast(true, {style})
+        show_gq({"GQuest Available"})
+      end
+    elseif msg == 2 then
+      -- gquest joined
+      show_gq({"GQuest Joined - Waiting"})
+    elseif msg == 3 then
+      ingq = true
+      local pvar = GetPluginVariable(  "aaa77f81c5408278ccda7100", "mobs" )
+      -- get the mobs
+      loadstring( pvar )()
+      gqmobs = mobs
+      build_gq()
+    elseif msg == 4 or msg == 5 or msg == 6 then
+      ingq = false
+    elseif msg == 8 then
+      -- reward
+      if not ingq then
+        gqwin:disable()
+      end
+    end
+
+  end -- gq broadcast
+  phelper:OnPluginBroadcast(msg, id, name, text)
+end
+
+function OnPluginInstall ()
+  --OnPluginEnable is automatically called by pluginhelper
+
+  phelper:OnPluginInstall()
+end -- OnPluginInstall
+
+function OnPluginClose()
+
+  phelper:OnPluginClose()
+end -- OnPluginClose
+
+function OnPluginEnable ()
+  ldplugin("broadcast_gq")
+
+  phelper:OnPluginEnable()
+end -- OnPluginEnable
+
+function OnPluginDisable ()
+
+  phelper:OnPluginDisable()
+end -- OnPluginDisable
+
+function OnPluginConnect ()
+
+  phelper:OnPluginConnect()
+end -- OnPluginConnect
+
+function OnPluginDisconnect ()
+
+  phelper:OnPluginDisconnect()
+end -- function OnPluginConnect
+
+function OnPluginSaveState ()
+
+  phelper:OnPluginSaveState()
+end -- function OnPluginSaveState
+
+]]>
+</script>
+
+<script>
+<![CDATA[
+
+phelper:set_default('cmd', 'mgq')
+phelper:set_default('plugin_colour', 'steelblue')
+
+phelper:add_pobject('win', gqwin)
+
+phelper:enable()
+
+]]>
+
+</script>
+
+</muclient>
